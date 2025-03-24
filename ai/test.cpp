@@ -6,7 +6,7 @@ int main()
 {
     try
     {
-        ai::client client;
+        ai::handle client;
         ai::stream_handler res({
             .delta = [](std::string_view accum, std::string_view delta) { std::print("{}", delta); },
             .finish = [](std::string_view accum) { std::print("\n"); }

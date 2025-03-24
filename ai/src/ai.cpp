@@ -15,7 +15,7 @@
 
 AI_BEG
 
-client::client() : M_key(std::getenv("OPENAI_API_KEY"))
+handle::handle() : M_key(std::getenv("OPENAI_API_KEY"))
 {
     if (M_key.empty())
     {
@@ -23,15 +23,15 @@ client::client() : M_key(std::getenv("OPENAI_API_KEY"))
         std::exit(1);
     }
 
-    std::print("Initializing OpenAI client...\n");
+    std::print("Initializing OpenAI handle...\n");
 }
 
-client::~client()
+handle::~handle()
 {
-    std::print("Destroying OpenAI client...\n");
+    std::print("Destroying OpenAI handle...\n");
 }
 
-assistant::assistant(ai::client &_client,
+assistant::assistant(handle &_client,
                      std::string_view name,
                      std::string_view instructions,
                      std::string_view model,

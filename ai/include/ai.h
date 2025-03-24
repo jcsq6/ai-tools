@@ -12,11 +12,11 @@
 #include "json.hpp"
 
 AI_BEG
-class client
+class handle
 {
 public:
-    client();
-    ~client();
+    handle();
+    ~handle();
 
     auto &key() const { return M_key; }
 private:
@@ -26,7 +26,7 @@ private:
 class assistant
 {
 public:
-    assistant(client &_client,
+    assistant(handle &_client,
               std::string_view name,
               std::string_view instructions,
               std::string_view model,
@@ -40,7 +40,7 @@ public:
     auto &response_format() const { return M_response_format; }
 
 private:
-    ai::client *M_client;
+    handle *M_client;
     std::string M_name;
     std::string M_instructions;
     std::string M_model;
