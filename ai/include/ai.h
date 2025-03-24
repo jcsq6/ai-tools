@@ -74,22 +74,31 @@ public:
     void reset()
     {
         M_accum.clear();
-        buffer.clear();
-        M_id.clear();
+        M_buffer.clear();
+        M_response_id.clear();
+        M_message_id.clear();
         M_err.clear();
         M_err_msg.clear();
         M_blocks.clear();
         finished = false;
     }
+
+    auto &accum() const { return M_accum; }
+    auto &response_id() const { return M_response_id; }
+    auto &message_id() const { return M_message_id; }
+    auto &err() const { return M_err; }
+    auto &err_msg() const { return M_err_msg; }
 private:
     std::function<void(std::string_view, std::string_view)> M_delta;
     std::function<void(std::string_view)> M_finish;
     std::string M_accum;
-    std::string buffer;
-    std::string M_id;
+    std::string M_buffer;
+    std::string M_response_id;
+    std::string M_message_id;
     std::vector<std::string_view> M_blocks; // optimization
     std::string M_err;
     std::string M_err_msg;
+    std::time_t M_created_at = 0;
     bool finished = false;
 
 
@@ -100,10 +109,18 @@ private:
 class thread
 {
 public:
+    struct message
+    {
+        std::string id;
+        std::string input;
+        std::string response;
+        std::time_t created_at;
+    };
+
     thread(assistant &assistant);
 
     void send(std::string_view input, stream_handler &res);
-    const auto &get_message_ids() const { return M_ids; }
+    const auto &get_messages() const { return M_messages; }
 
     void join()
     {
@@ -113,12 +130,14 @@ public:
             std::rethrow_exception(M_exception);
     }
 
+    void save_thread(std::string_view database);
+
     ~thread()
     {
         join();
     }
 private:
-    std::vector<std::string> M_ids;
+    std::vector<message> M_messages;
     assistant *M_assistant;
 
     std::jthread M_thread;

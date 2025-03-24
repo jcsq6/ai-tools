@@ -15,6 +15,7 @@ int main()
         ai::thread thread(assistant);
         thread.send("Testing!", res);
         thread.send("What did I just say?", res);
+        thread.save_thread("database");
         return 0;
     }
     catch(const std::exception &e)
