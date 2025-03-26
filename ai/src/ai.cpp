@@ -15,20 +15,38 @@
 
 AI_BEG
 
-handle::handle() : M_key(std::getenv("OPENAI_API_KEY"))
-{
-    if (M_key.empty())
+handle::handle()
+{    
+    if (auto var = std::getenv("OPENAI_API_KEY"))
     {
-        std::print(std::cerr, "No OpenAI API key found in environment variables.\n");
-        std::exit(1);
+        M_key = var;
+        return;
     }
 
-    std::print("Initializing OpenAI handle...\n");
+    std::ifstream file(".env");
+    if (file)
+    {
+        while (std::getline(file, M_key))
+        {
+            std::string_view lv = M_key;
+            if (auto loc = lv.rfind("OPENAI_API_KEY", 0); loc == 0)
+            {
+                lv.remove_prefix(14);
+                while (std::isspace(lv.front()) || lv.front() == '=')
+                    lv.remove_prefix(1);
+
+                M_key = lv;
+                return;
+            }
+        }
+    }
+
+    std::print(std::cerr, "No OpenAI API key found in environment variables or .env file.\n");
+    std::exit(1);
 }
 
 handle::~handle()
 {
-    std::print("Destroying OpenAI handle...\n");
 }
 
 assistant::assistant(handle &_client,
@@ -51,7 +69,6 @@ assistant::assistant(handle &_client,
 
 assistant::~assistant()
 {
-    std::print("Destroying assistant {}...\n", M_name);
 }
 
 std::string_view trimmed(std::string_view str)
