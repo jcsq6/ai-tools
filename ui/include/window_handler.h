@@ -8,9 +8,9 @@
 class window_handler
 {
 public:
-    window_handler(QApplication *app) : M_app(app)
+    window_handler(const ai::database &db, QApplication *app) : M_app(app)
     {
-        M_tray = new tray();
+        M_tray = new tray(db);
     }
 private:
     std::vector<QWidget *> M_windows;

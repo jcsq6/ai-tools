@@ -11,8 +11,9 @@
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
-    app.setQuitOnLastWindowClosed(false);
-    window_handler handler(&app);
+
+    ai::database db("database");
+    window_handler handler(db, &app);
 
     return app.exec();
 }

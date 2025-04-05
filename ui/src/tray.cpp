@@ -1,25 +1,216 @@
 #include "tray.h"
 #include "ui_tray_window.h"
 
-tray_window::tray_window(QWidget *parent) :
-    QWidget(parent),
-    ui(new Ui::TrayWindow)
+#include "history_item.h"
+#include "ui_history_item.h"
+
+#include <QSortFilterProxyModel>
+#include <QRegularExpression>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <print>
+
+Q_DECLARE_METATYPE(const ai::database::entry*)
+
+history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
+    QWidget(parent, Qt::Window | Qt::WindowStaysOnTopHint),
+    M_ui(new Ui::HistoryItem)
 {
-    ui->setupUi(this);
+    M_ui->setupUi(this);
+    // connect(M_ui->Messages->horizontalHeader(), &QHeaderView::sectionResized, [this]() {
+    //     M_ui->Messages->resizeColumnsToContents();
+    // });
+    M_ui->Messages->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    M_ui->Messages->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    M_ui->AssistantLabel->setText(QString::fromStdString(entry.assistant));
+    M_ui->DateLabel->setText(QString::fromStdString(entry.model));
+    for (const auto &message : entry.messages) {
+        auto inputItem = new QTableWidgetItem(QString::fromStdString(message.input));
+        auto responseItem = new QTableWidgetItem(QString::fromStdString(message.response));
+        M_ui->Messages->insertRow(M_ui->Messages->rowCount());
+        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, inputItem);
+        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, responseItem);
+    }
+
+    M_ui->Messages->resizeColumnsToContents();
+}
+history_item::~history_item() = default;
+
+class filter_proxy : public QSortFilterProxyModel {
+public:
+    filter_proxy(QObject* parent = nullptr) : QSortFilterProxyModel(parent) {}
+
+    bool filterAcceptsRow(int source_row, const QModelIndex& parent) const override
+    {
+        auto filter_column = [this, source_row, &parent](int col) {
+            QModelIndex index = sourceModel()->index(source_row, col, parent);
+
+            if (sourceModel()->data(index, Qt::DisplayRole).toString().contains(filterRegularExpression()))
+                return true;
+            
+            auto json = sourceModel()->data(index, Qt::UserRole).toJsonObject();
+            if (json.isEmpty())
+                return false;
+            auto assistant = json["assistant"].toString();
+            auto messages = json["messages"].toArray();
+            for (const auto& message : messages) {
+                auto msg = message.toObject();
+                if (msg["input"].toString().contains(filterRegularExpression()) ||
+                    msg["response"].toString().contains(filterRegularExpression()))
+                    return true;
+            }
+
+            return assistant.contains(filterRegularExpression()) ||
+                   json["model"].toString().contains(filterRegularExpression());
+        };
+
+        if (filterKeyColumn() >= 0)
+            return filter_column(filterKeyColumn());
+
+        for (int col = 0; col < sourceModel()->columnCount(); ++col)
+            if (filter_column(col))
+                return true;
+        return false;
+    }
+};
+
+tray_window::tray_window(const ai::database &db, QWidget *parent) :
+    QMainWindow(parent),
+    M_db(&db),
+    M_ui(new Ui::TrayWindow)
+{
+    M_ui->setupUi(this);
+
+    setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+
+    M_ui->HistoryButton->connect(M_ui->HistoryButton, &QPushButton::clicked, [&] {
+        M_ui->Pages->setCurrentWidget(M_ui->HistoryPage);
+    });
+
+    M_ui->SettingsButton->connect(M_ui->SettingsButton, &QPushButton::clicked, [&] {
+        M_ui->Pages->setCurrentWidget(M_ui->SettingsPage);
+    });
+
+    M_model = new QStandardItemModel(this);
+    M_model->setColumnCount(2);
+    M_model->setHeaderData(0, Qt::Horizontal, "Date");
+    M_model->setHeaderData(1, Qt::Horizontal, "Content");
+    M_ui->Conversations->verticalHeader()->setVisible(false);
+    M_ui->Conversations->setColumnWidth(0, 100);
+    M_ui->Conversations->setColumnWidth(1, 180 - 2);
+
+    auto proxy = new filter_proxy(this);
+    proxy->setSourceModel(M_model);
+    proxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
+
+    M_ui->Conversations->setModel(proxy);
+    // M_ui->Conversations->resizeColumnsToContents();
+    proxy->setFilterKeyColumn(-1);
+
+    QObject::connect(M_ui->SearchInput, &QLineEdit::textChanged, [proxy](const QString& text) {
+        proxy->setFilterRegularExpression(text);
+    });
+
+    auto connect_filter = [proxy, this](QPushButton* button, int column) {
+        QObject::connect(button, &QPushButton::clicked, [=, this] (bool checked) {
+            if (checked)
+            {
+                proxy->setFilterKeyColumn(column);
+                std::print("filtering with {}\n", column);
+                if (M_ui->DateButton != button) M_ui->DateButton->setChecked(false);
+                if (M_ui->ContentButton != button) M_ui->ContentButton->setChecked(false);
+                if (M_ui->KeybindFilterButton != button) M_ui->KeybindFilterButton->setChecked(false);
+            }
+            else
+            {
+                proxy->setFilterKeyColumn(-1);
+                std::print("filtering with all\n");
+            }
+        });
+    };
+
+    connect_filter(M_ui->DateButton, 0);
+    connect_filter(M_ui->ContentButton, 1);
+    connect_filter(M_ui->KeybindFilterButton, 2);
+
+    auto header = M_ui->Conversations->horizontalHeader();
+    // header->setSectionResizeMode(QHeaderView::Fixed);
+    header->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    header->setSectionsMovable(false);
+
+    header->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(1, QHeaderView::Stretch);
+
+    update_history();
+
+    connect(M_ui->Conversations, &QTableView::doubleClicked, this, &tray_window::on_conversation_double_clicked);
+
 }
 
 tray_window::~tray_window() = default;
 
-tray::tray(QWidget *parent) :
+void tray_window::update_history()
+{
+    M_model->removeRows(0, M_model->rowCount());
+    for (const auto &conversation : M_db->get_entries()) {
+        auto date = new QStandardItem(QString::fromStdString(conversation.date()));
+
+        auto content = new QStandardItem();
+        content->setData(QString::fromStdString(conversation.messages[0].input), Qt::DisplayRole); // Display text
+
+        QJsonObject json;
+        json["assistant"] = QString::fromStdString(conversation.assistant);
+        json["model"] = QString::fromStdString(conversation.model);
+        QJsonArray messages;
+        for (auto message : conversation.messages) {
+            QJsonObject msg;
+            msg["input"] = QString::fromStdString(message.input);
+            msg["response"] = QString::fromStdString(message.response);
+            messages.append(msg);
+        }
+        json["messages"] = messages;
+        content->setData(json, Qt::UserRole); // Store metadata
+
+        QVariant entryPointer = QVariant::fromValue(&conversation);
+        content->setData(entryPointer, Qt::UserRole + 1); // Use a custom role
+
+        M_model->appendRow({ date, content });
+    }
+}
+
+void tray_window::on_conversation_double_clicked(const QModelIndex &index)
+{
+    auto proxy = qobject_cast<QSortFilterProxyModel*>(M_ui->Conversations->model());
+    if (!proxy)
+        return;
+
+    QModelIndex sourceIndex = proxy->mapToSource(index);
+
+    auto content = M_model->item(sourceIndex.row(), 1)->data(Qt::UserRole + 1).value<const ai::database::entry*>();
+    if (!content)
+    {
+        std::print("Failed to get find database entry\n");
+        return;
+    }
+
+    auto *item = new history_item(*content, this);
+    item->setAttribute(Qt::WA_DeleteOnClose);
+    item->setAttribute(Qt::WA_ShowWithoutActivating);
+    item->raise();
+    item->show();
+}
+
+tray::tray(const ai::database &db, QWidget *parent) :
     QWidget(parent)
 {
-    window = new tray_window();
+    window = new tray_window(db), this;
+    window->show(); // remove
 
-    menu = new QMenu();
+    menu = new QMenu(this);
     menu->addAction("Settings", [&] { window->show(); });
     menu->addAction("Exit", [&] { QApplication::exit(); });
 
-    icon = new QSystemTrayIcon(QIcon("assets/icon.png"));
+    icon = new QSystemTrayIcon(QIcon("assets/icon.png"), this);
     icon->setToolTip("AI-Tools");
     icon->show();
     icon->setContextMenu(menu);

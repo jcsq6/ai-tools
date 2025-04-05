@@ -31,7 +31,6 @@ public:
               std::string_view instructions,
               std::string_view model,
               const nlohmann::json &response_format = {});
-    ~assistant();
 
     auto &client() const { return *M_client; }
     auto &name() const { return M_name; }
@@ -119,6 +118,8 @@ public:
 
     thread(assistant &assistant);
 
+    auto &get_assistant() const { return *M_assistant; }
+
     void send(std::string_view input, stream_handler &res);
     const auto &get_messages() const { return M_messages; }
 
@@ -129,8 +130,6 @@ public:
         if (M_exception)
             std::rethrow_exception(M_exception);
     }
-
-    void save_thread(std::string_view database);
 
     ~thread()
     {
@@ -145,4 +144,5 @@ private:
 
     static size_t sse_write(void *contents, size_t size, size_t nmemb, void *userp);
 };
+
 AI_END

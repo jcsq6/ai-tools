@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="/assets">
+    <file>filter.png</file>
+    <file>search.png</file>
+    <file>history.png</file>
+    <file>keyboard.png</file>
+    <file>settings.png</file>
+  </qresource>
+</RCC>

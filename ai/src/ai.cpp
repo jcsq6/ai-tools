@@ -7,9 +7,6 @@
 #include <utility>
 #include <thread>
 #include <fstream>
-#include <filesystem>
-#include <iomanip>
-#include <sstream>
 
 #include <curl/curl.h>
 
@@ -65,10 +62,6 @@ assistant::assistant(handle &_client,
         M_request["text"] = response_format;
     M_request["previous_response_id"] = nullptr;
     M_request["input"] = std::string();
-}
-
-assistant::~assistant()
-{
 }
 
 std::string_view trimmed(std::string_view str)
@@ -289,57 +282,6 @@ void thread::send(std::string_view input, stream_handler &res)
     };
 
     M_thread = std::jthread(runner);
-}
-
-void thread::save_thread(std::string_view database)
-{
-    if (M_thread.joinable())
-        join();
-
-    if (M_messages.empty())
-        return;
-
-    std::filesystem::path dbpath(database);
-    std::filesystem::create_directories(dbpath);
-
-    auto t1 = (std::ostringstream() << std::put_time(std::localtime(&M_messages.front().created_at), "%Y-%m-%d")).str();
-    auto filename = dbpath / t1;
-    filename.replace_extension(".json");
-
-    nlohmann::json j;
-    if (std::filesystem::exists(filename))
-    {
-        try
-        {
-            j = nlohmann::json::parse(std::ifstream(filename));
-            if (!j.is_array())
-                throw std::runtime_error("Database file is not an array.");
-        }
-        catch(const std::exception& e)
-        {
-            std::print(std::cerr, "Failed to parse database file: {}\n", e.what());
-        }
-    }
-
-    std::ofstream file(filename);
-    if (!file)
-        throw std::runtime_error(std::format("Failed to open database file: {}", filename.string()));
-
-    j.push_back({{"assistant", M_assistant->name()}, {"model", M_assistant->model()}, {"messages", nlohmann::json::array()}});
-    auto &messages = j.back()["messages"];
-    for (auto &message : M_messages)
-    {
-        messages.push_back({
-            {"id", message.id},
-            {"input", message.input},
-            {"response", message.response},
-            {"created_at", message.created_at}
-        });
-    }
-
-    file << j.dump(4) << '\n';
-
-    std::print("Saved thread to {}\n", filename.string());
 }
 
 AI_END

@@ -1,4 +1,5 @@
 #include "ai.h"
+#include "database.h"
 #include <print>
 #include <iostream>
 
@@ -15,7 +16,9 @@ int main()
         ai::thread thread(assistant);
         thread.send("Testing!", res);
         thread.send("What did I just say?", res);
-        thread.save_thread("database");
+
+        ai::database db("database", false);
+        db.append(thread);
         return 0;
     }
     catch(const std::exception &e)
