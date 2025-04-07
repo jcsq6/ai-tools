@@ -74,13 +74,20 @@ std::string_view trimmed(std::string_view str)
     return str;
 }
 
-void stream_handler::parse()
+void raw_stream::parse(std::string_view delta_str)
 {
+    if (delta_str.empty())
+        return;
+    if (finished)
+        return;
+    
+    buffer.append(delta_str);
+
     size_t pos = 0;
 
     M_blocks.clear();
 
-    const std::string cbuff = M_buffer;
+    const std::string cbuff = buffer;
 
     // search for blank lind for end of SSE block
     while (true)
@@ -95,7 +102,7 @@ void stream_handler::parse()
 
     // remove what was parsed
     if (pos > 0)
-        M_buffer.erase(0, pos);
+        buffer.erase(0, pos);
 
     for (auto &block : M_blocks)
     {
@@ -127,14 +134,14 @@ void stream_handler::parse()
                 auto j = nlohmann::json::parse(data);
                 if (j.contains("delta"))
                 {
-                    std::string delta = j["delta"];
-                    M_accum.append(delta);
-                    if (M_delta)
-                        M_delta(M_accum, delta);
+                    std::string ds = j["delta"];
+                    accum.append(ds);
+                    if (delta)
+                        delta(accum, ds);
                 }
-            } catch (...)
+            } catch (const std::exception& e)
             {
-                std::print(std::cerr, "Failed to parse delta: {}\n", data);
+                std::print(std::cerr, "Failed to parse delta: {}, {}\n", e.what(), data);
             }
         }
         else if (event_name == "response.output_text.done")
@@ -143,15 +150,15 @@ void stream_handler::parse()
             {
                 auto j = nlohmann::json::parse(data);
                 if (j.contains("text_id"))
-                    M_message_id = j["item_id"];
+                    message_id = j["item_id"];
             }
             catch(const std::exception& e)
             {
                 std::print(std::cerr, "Failed to parse message id: {}\n", data);
             }
 
-            if (M_finish)
-                M_finish(M_accum);
+            if (finish)
+                finish(accum);
             finished = true;
             return;
         }
@@ -162,10 +169,10 @@ void stream_handler::parse()
                 auto j = nlohmann::json::parse(data);
                 if (j.contains("error"))
                 {
-                    M_err = j["error"]["code"];
-                    M_err_msg = j["error"]["message"];
+                    err = j["error"]["code"];
+                    err_msg = j["error"]["message"];
 
-                    std::print(std::cerr, "Request failed with code {}: {}\n", M_err, M_err_msg);
+                    std::print(std::cerr, "Request failed with code {}: {}\n", err, err_msg);
                 }
                 finished = true;
             } catch (...)
@@ -181,8 +188,8 @@ void stream_handler::parse()
                 auto j = nlohmann::json::parse(data);
                 if (j.contains("response"))
                 {
-                    M_response_id = j["response"]["id"];
-                    M_created_at = j["response"]["created_at"];
+                    response_id = j["response"]["id"];
+                    created_at = j["response"]["created_at"];
                 }
             } catch (...)
             {
@@ -199,22 +206,19 @@ thread::thread(assistant &assistant) : M_assistant(&assistant)
 
 size_t thread::sse_write(void *contents, size_t size, size_t nmemb, void *userp)
 {
-    stream_handler *res = static_cast<stream_handler *>(userp);
     const auto total_size = size * nmemb;
-    res->M_buffer.append(static_cast<char *>(contents), total_size);
-    if (!res->finished)
-        res->parse();
+    static_cast<stream_handler *>(userp)->M_stream.parse(std::string_view(static_cast<char *>(contents), total_size));
     return total_size;
 }
 
-void thread::send(std::string_view input, stream_handler &res)
+void thread::send(std::string_view input, std::shared_ptr<stream_handler> res)
 {
     if (M_thread.joinable())
         join();
-    
-    auto runner = [this, input, &res]()
+
+    auto runner = [this, input, res = std::move(res)]()
     {
-        res.reset();
+        res->reset();
         try
         {
             auto &request = M_assistant->M_request;
@@ -241,7 +245,7 @@ void thread::send(std::string_view input, stream_handler &res)
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, sse_write);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &res);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, res.get());
 
             curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 128L);
             curl_easy_setopt(curl, CURLOPT_TIMEOUT, 0L);
@@ -260,21 +264,21 @@ void thread::send(std::string_view input, stream_handler &res)
             {
                 try
                 {
-                    auto j = nlohmann::json::parse(res.M_buffer);
-                    res.M_err = j["error"]["code"];
-                    res.M_err_msg = j["error"]["message"];
+                    auto j = nlohmann::json::parse(res->M_stream.buffer);
+                    res->M_stream.err = j["error"]["code"];
+                    res->M_stream.err_msg = j["error"]["message"];
                 }
                 catch(...)
                 {
                 }
                 
-                if (res.M_err.empty())
+                if (res->M_stream.err.empty())
                     throw std::runtime_error(std::format("Request failed with status code: {}", response_code));
                 else
-                    throw std::runtime_error(std::format("Request failed with code {}: {}", res.M_err, res.M_err_msg));
+                    throw std::runtime_error(std::format("Request failed with code {}: {}", res->M_stream.err, res->M_stream.err_msg));
             }
 
-            M_messages.push_back({.id = res.M_response_id, .input = std::string(input), .response = res.M_accum, .created_at = res.M_created_at});
+            M_messages.push_back({.id = res->M_stream.response_id, .input = std::string(input), .response = res->M_stream.accum, .created_at = res->M_stream.created_at});
         } catch (...)
         {
             M_exception = std::current_exception();
@@ -282,6 +286,123 @@ void thread::send(std::string_view input, stream_handler &res)
     };
 
     M_thread = std::jthread(runner);
+}
+
+void json_stream_handler::parse(std::string_view accum)
+{
+    if (accum.empty())
+        return;
+    
+    std::string modified(accum);
+    std::vector<char> stack;
+    stack.reserve(modified.size() / 2);
+
+    constexpr std::string_view open = "[{\"";
+    constexpr std::string_view close = "]}\"";
+
+    bool escaped = false;
+
+    std::print("\nParsing json: {}\n", accum);
+
+    for (auto c : modified)
+    {
+        if (c == '\\')
+        {
+            escaped = !escaped;
+            continue;
+        }
+
+        if (escaped)
+        {
+            escaped = false;
+            continue;
+        }
+
+        if (!stack.empty() && stack.back() == '"')
+        {
+            if (c == '"')
+                stack.pop_back();
+            continue;
+        }
+
+        if (open.find(c) != std::string_view::npos)
+            stack.push_back(c);
+        else if (close.find(c) != std::string_view::npos)
+            stack.pop_back();
+    }
+
+    bool empty = false;
+    // unfinished string
+    if (stack.back() == '"')
+    {
+        stack.pop_back();
+        empty = modified.back() == '"';
+        modified += '"';
+    }
+
+    // unfinished dict
+    if (stack.back() == '{')
+    {
+        // search for "
+        auto loc = modified.rend();
+        for (auto it = modified.rbegin(); it != modified.rend(); ++it)
+            if (!std::isspace(*it))
+            {
+                if (*it == '"')
+                    loc = it;
+                break;
+            }
+
+
+        // search for the beginning of the string
+        for (auto it = loc + 1; it < modified.rend();)
+        {
+            escaped = false;
+            auto it2 = it + 1;
+            for (; it2 < modified.rend(); ++it2)
+                if (*it2 == '\\')
+                    escaped = !escaped;
+                else
+                    break;
+
+            if (!escaped && *it == '"')
+            {
+                loc = it;
+                break;
+            }
+
+            it = it2;
+        }
+        
+        // search for a colon
+        for (auto it = loc + 1; it < modified.rend(); ++it)
+        {
+            if (!std::isspace(*it))
+            {
+                if (*it != ':') // key
+                {
+                    if (empty)
+                        modified.erase(loc.base() - 1, modified.end());
+                    else
+                        modified += ": null";
+                }
+                break;
+            }
+        }
+
+        for (auto it = modified.rbegin(); it < modified.rend(); ++it)
+            if (!std::isspace(*it))
+            {
+                if (*it == ',')
+                    modified.erase(it.base() - 1, modified.end());
+                break;
+            }
+    }
+
+    for (auto c : std::views::reverse(stack))
+        modified += close[open.find(c)];
+
+    M_accum = nlohmann::json::parse(modified);
 }
 
 AI_END

@@ -3,6 +3,9 @@
 #define AI_BEG namespace ai {
 #define AI_END }
 
+#include <print>
+#include <iostream>
+
 #include <string>
 #include <vector>
 #include <thread>
@@ -49,60 +52,61 @@ private:
     friend class thread;
 };
 
-class stream_handler
+class raw_stream
 {
 public:
     // delta: void(accum, delta)
     // finish: void(accum)
-    stream_handler()
-    {
-        M_blocks.reserve(8);
-    }
-
-    struct constructor_args
-    {
-        std::function<void(std::string_view, std::string_view)> delta = nullptr;
-        std::function<void(std::string_view)> finish = nullptr;
-    };
-
-    stream_handler(constructor_args &&args) : M_delta(std::move(args.delta)), M_finish(std::move(args.finish))
+    raw_stream()
     {
         M_blocks.reserve(8);
     }
 
     void reset()
     {
-        M_accum.clear();
-        M_buffer.clear();
-        M_response_id.clear();
-        M_message_id.clear();
-        M_err.clear();
-        M_err_msg.clear();
+        accum.clear();
+        buffer.clear();
+        response_id.clear();
+        message_id.clear();
+        err.clear();
+        err_msg.clear();
         M_blocks.clear();
         finished = false;
     }
 
-    auto &accum() const { return M_accum; }
-    auto &response_id() const { return M_response_id; }
-    auto &message_id() const { return M_message_id; }
-    auto &err() const { return M_err; }
-    auto &err_msg() const { return M_err_msg; }
-private:
-    std::function<void(std::string_view, std::string_view)> M_delta;
-    std::function<void(std::string_view)> M_finish;
-    std::string M_accum;
-    std::string M_buffer;
-    std::string M_response_id;
-    std::string M_message_id;
-    std::vector<std::string_view> M_blocks; // optimization
-    std::string M_err;
-    std::string M_err_msg;
-    std::time_t M_created_at = 0;
+    std::function<void(std::string_view, std::string_view)> delta;
+    std::function<void(std::string_view)> finish;
+    std::string accum;
+    std::string buffer;
+    std::string response_id;
+    std::string message_id;
+    std::string err;
+    std::string err_msg;
+    std::time_t created_at = 0;
     bool finished = false;
 
+    void parse(std::string_view delta_str);
+private:
+    std::vector<std::string_view> M_blocks; // optimization
+};
 
+class stream_handler
+{
+public:
+    stream_handler() = default;
+    virtual ~stream_handler() = default;
+
+    auto &response_id() const { return M_stream.response_id; }
+    auto &message_id() const { return M_stream.message_id; }
+    auto &err() const { return M_stream.err; }
+    auto &err_msg() const { return M_stream.err_msg; }
+    auto created_at() const { return M_stream.created_at; }
+    auto finished() const { return M_stream.finished; }
+
+    void reset() { M_stream.reset(); }
+protected:
+    raw_stream M_stream;
     friend class thread;
-    void parse();
 };
 
 class thread
@@ -120,7 +124,7 @@ public:
 
     auto &get_assistant() const { return *M_assistant; }
 
-    void send(std::string_view input, stream_handler &res);
+    void send(std::string_view input, std::shared_ptr<stream_handler> res);
     const auto &get_messages() const { return M_messages; }
 
     void join()
@@ -143,6 +147,86 @@ private:
     std::exception_ptr M_exception = nullptr;
 
     static size_t sse_write(void *contents, size_t size, size_t nmemb, void *userp);
+};
+
+template <typename DeltaFn, typename FinishFn>
+struct delta_funs
+{
+    DeltaFn delta = nullptr;
+    FinishFn finish = nullptr;
+};
+
+class text_stream_handler : public stream_handler
+{
+    struct secret {};
+public:
+    using delta_fun_t = std::function<void(std::string_view accum, std::string_view)>;
+    using finish_fun_t = std::function<void(std::string_view)>;
+    using constructor_arg_t = delta_funs<delta_fun_t, finish_fun_t>;
+
+    text_stream_handler(constructor_arg_t &&args, secret)
+    {
+        M_stream.delta = std::move(args.delta);
+        M_stream.finish = std::move(args.finish);
+    }
+
+    static auto make(constructor_arg_t &&args)
+    {
+        return std::make_shared<text_stream_handler>(std::move(args), secret{});
+    }
+
+    void set_delta(delta_fun_t delta) { M_stream.delta = std::move(delta); }
+    void set_finish(finish_fun_t finish) { M_stream.finish = std::move(finish); }
+};
+
+class json_stream_handler : public stream_handler
+{
+    struct secret {};
+public:
+
+    using delta_fun_t = std::function<void(const nlohmann::json &)>;
+    using finish_fun_t = std::function<void(const nlohmann::json &)>;
+
+    using constructor_arg_t = delta_funs<delta_fun_t, finish_fun_t>;
+
+    json_stream_handler(constructor_arg_t &&args, secret)
+    {
+        set_delta(std::move(args.delta));
+        set_finish(std::move(args.finish));
+    }
+
+    static auto make(constructor_arg_t &&args)
+    {
+        return std::make_shared<json_stream_handler>(std::move(args), secret{});
+    }
+
+    void set_delta(delta_fun_t _delta)
+    {
+        if (_delta)
+            M_stream.delta = [this, _delta = std::move(_delta)](std::string_view accum, std::string_view) {
+                parse(accum);
+                _delta(M_accum);
+            };
+        else
+            M_stream.delta = nullptr;
+    }
+    
+    void set_finish(finish_fun_t finish)
+    {
+        if (finish)
+            M_stream.finish = [this, finish = std::move(finish)](std::string_view accum) {
+                parse(accum);
+                finish(M_accum);
+            };
+        else
+            M_stream.finish = nullptr;
+    }
+
+    void parse(std::string_view accum);
+
+    const auto &accum() const { return M_accum; }
+private:
+    nlohmann::json M_accum;
 };
 
 AI_END

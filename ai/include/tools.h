@@ -2,21 +2,56 @@
 #include "ai.h"
 
 AI_BEG
+
 class tool
 {
 public:
-    tool(handle &_client);
-    virtual ~tool() = default;
+    template <typename Self>
+    tool(Self &self, handle &client) :
+        M_assistant(
+            client,
+            Self::name(),
+            Self::instructions(),
+            Self::model(),
+            make_format<Self>()
+        )
+    {
+    }
 
-    virtual std::string_view name() const = 0;
-    virtual std::string_view description() const = 0;
+    thread start_thread() 
+    {
+        return thread(M_assistant);
+    }
 
 protected:
-    virtual std::string_view instructions() const = 0;
-    virtual std::string_view model() const = 0;
-    virtual const nlohmann::json &response_format() const = 0;
+    assistant M_assistant;
 
-    
+    template <typename Self>
+    static auto make_format()
+    {
+        return nlohmann::json{
+            {"format", {
+                {"type", "json_schema"},
+                {"name", Self::name()},
+                {"schema", Self::schema()}
+            }}
+        };
+    }
+};
+
+
+class reworder : public tool
+{
+public:
+    reworder(handle &client) : tool(*this, client) {}
+
+    static constexpr std::string_view name() { return "Reworder"; }
+    static constexpr std::string_view instructions() { return "Improve the given text, rewording if necessary."; }
+    static constexpr std::string_view model() { return "gpt-4o"; }
+    static const nlohmann::json &schema() { return M_schema; }
+
+private:
+    static nlohmann::json M_schema;
 };
 
 AI_END
