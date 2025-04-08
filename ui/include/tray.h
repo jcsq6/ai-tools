@@ -1,5 +1,5 @@
 #pragma once
-#include <QMainWindow>
+// #include <QMainWindow>
 #include <memory>
 #include <QSystemTrayIcon>
 #include <QMenu>
@@ -14,7 +14,7 @@ namespace Ui {
 }
 QT_END_NAMESPACE
 
-class tray_window : public QMainWindow
+class tray_window : public QWidget
 {
     Q_OBJECT
 public:

@@ -3,8 +3,6 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
-#include <iostream>
-#include <print>
 
 AI_BEG
 

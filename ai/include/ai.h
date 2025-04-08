@@ -3,8 +3,8 @@
 #define AI_BEG namespace ai {
 #define AI_END }
 
-#include <print>
 #include <iostream>
+#include <print>
 
 #include <string>
 #include <vector>

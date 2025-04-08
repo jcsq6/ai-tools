@@ -4,11 +4,63 @@
 #include "history_item.h"
 #include "ui_history_item.h"
 
+#include "tools.h"
+
 #include <QSortFilterProxyModel>
 #include <QRegularExpression>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <print>
+
+#include <QStyledItemDelegate>
+#include <QTextDocument>
+#include <QPainter>
+
+class HtmlDelegate : public QStyledItemDelegate {
+public:
+    HtmlDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        QString text = index.data(Qt::DisplayRole).toString();
+        QTextDocument doc;
+        doc.setHtml(text);
+    
+        auto topt = doc.defaultTextOption();
+        topt.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        doc.setDefaultTextOption(topt);
+    
+        // Set the document text width to the cell width to force wrapping
+        doc.setTextWidth(option.rect.width());
+    
+        painter->save();
+    
+        // Draw background
+        QStyleOptionViewItem opt(option);
+        initStyleOption(&opt, index);
+        opt.text = "";
+        opt.widget->style()->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
+    
+        // Translate painter and draw contents
+        painter->translate(option.rect.topLeft());
+        QRect clip(0, 0, option.rect.width(), option.rect.height());
+        doc.drawContents(painter, clip);
+        painter->restore();
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        QString text = index.data(Qt::DisplayRole).toString();
+        
+        QTextDocument doc;
+        doc.setHtml(text);
+
+        auto opt = doc.defaultTextOption();
+        opt.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        doc.setDefaultTextOption(opt);
+        doc.setTextWidth(option.rect.width());
+        
+        return QSize(doc.idealWidth(), doc.size().height());
+    }
+};
 
 Q_DECLARE_METATYPE(const ai::database::entry*)
 
@@ -24,12 +76,18 @@ history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
     M_ui->Messages->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     M_ui->AssistantLabel->setText(QString::fromStdString(entry.assistant));
     M_ui->DateLabel->setText(QString::fromStdString(entry.model));
+    M_ui->Messages->setItemDelegateForColumn(1, new HtmlDelegate(this));
     for (const auto &message : entry.messages) {
-        auto inputItem = new QTableWidgetItem(QString::fromStdString(message.input));
-        auto responseItem = new QTableWidgetItem(QString::fromStdString(message.response));
+
+        QString response_string;
+        if (entry.assistant == "Reworder")
+            response_string = QString::fromStdString(ai::reworder::format(message.response));
+        else
+            response_string = QString::fromStdString(message.response);
+
         M_ui->Messages->insertRow(M_ui->Messages->rowCount());
-        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, inputItem);
-        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, responseItem);
+        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, new QTableWidgetItem(QString::fromStdString(message.input)));
+        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, new QTableWidgetItem(response_string));
     }
 
     M_ui->Messages->resizeColumnsToContents();
@@ -75,7 +133,7 @@ public:
 };
 
 tray_window::tray_window(const ai::database &db, QWidget *parent) :
-    QMainWindow(parent),
+    QWidget(parent),
     M_db(&db),
     M_ui(new Ui::TrayWindow)
 {

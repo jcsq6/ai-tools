@@ -50,6 +50,35 @@ public:
     static constexpr std::string_view model() { return "gpt-4o"; }
     static const nlohmann::json &schema() { return M_schema; }
 
+    static std::string format(std::string_view response)
+    {
+        try
+        {
+            auto j = nlohmann::json::parse(response);
+            auto improved = j["improved"].get<std::string>();
+            auto explanation = j["explanation"].get<std::string>();
+            return std::format("<html>"
+                               "<body>"
+                               "<p style='font-weight: bold; font-size: 11px;'>Improved Text:</p>"
+                               "<p style='font-size:9px;'>{}</p>"
+                               "<p style='font-weight: bold; font-size: 11px;'>Explanation:</p>"
+                               "<p style='font-size:9px;'>{}</p>"
+                               "</body>"
+                               "</html>",
+                               improved, explanation);
+        }
+        catch(const std::exception& e)
+        {
+            std::print(std::cerr, "Error parsing response: {}\n", e.what());
+            return std::format("<html>"
+                               "<body>"
+                               "<p style='font-size:9px;'>{}</p>"
+                               "</body>"
+                               "</html>",
+                               response);
+        }
+    }
+
 private:
     static nlohmann::json M_schema;
 };

@@ -20,7 +20,10 @@ int main(int argc, char *argv[])
             }
         });
 
-        thread.send("I'm not too good at talkin.", res);
+        thread.send("This is a paragraph that is not written very well. It has a lot of issues, like grammar problems and unclear ideas, and it doesn't really make sense. I think it could be improved a lot if someone could help make it better and easier to understand.", res);
+
+        ai::database db("database", false);
+        db.append(thread);
 
         return 0;
     }
