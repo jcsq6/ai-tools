@@ -12,7 +12,7 @@
 #include <exception>
 #include <functional>
 
-#include "json.hpp"
+#include <json.hpp>
 
 AI_BEG
 class handle
@@ -143,7 +143,7 @@ private:
     std::vector<message> M_messages;
     assistant *M_assistant;
 
-    std::jthread M_thread;
+    std::thread M_thread;
     std::exception_ptr M_exception = nullptr;
 
     static size_t sse_write(void *contents, size_t size, size_t nmemb, void *userp);

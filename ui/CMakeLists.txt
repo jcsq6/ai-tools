@@ -11,7 +11,7 @@ file(GLOB RESOURCE_FILES "${CMAKE_SOURCE_DIR}/assets/*.qrc")
 set(CMAKE_AUTORCC ON)
 qt_add_executable(ai-tool main.cpp ${RESOURCE_FILES} ${SRC_FILES} ${HEADER_FILES})
 
-target_link_libraries(ai-tool PUBLIC Qt6::Widgets Qt6::Core Qt6::Gui ai)
+target_link_libraries(ai-tool PUBLIC Qt6::Widgets Qt6::Core Qt6::Gui ai QHotkey::QHotkey json)
 target_include_directories(ai-tool PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 # set_target_properties(ai-tool PROPERTIES
 #     WIN32_EXECUTABLE TRUE

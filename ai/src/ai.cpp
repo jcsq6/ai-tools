@@ -285,7 +285,7 @@ void thread::send(std::string_view input, std::shared_ptr<stream_handler> res)
         }
     };
 
-    M_thread = std::jthread(runner);
+    M_thread = std::thread(runner);
 }
 
 void json_stream_handler::parse(std::string_view accum)

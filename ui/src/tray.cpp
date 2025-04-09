@@ -139,7 +139,7 @@ tray_window::tray_window(const ai::database &db, QWidget *parent) :
 {
     M_ui->setupUi(this);
 
-    setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    setWindowFlags(Qt::Tool | Qt::WindowStaysOnTopHint);
 
     M_ui->HistoryButton->connect(M_ui->HistoryButton, &QPushButton::clicked, [&] {
         M_ui->Pages->setCurrentWidget(M_ui->HistoryPage);
@@ -261,7 +261,7 @@ void tray_window::on_conversation_double_clicked(const QModelIndex &index)
 tray::tray(const ai::database &db, QWidget *parent) :
     QWidget(parent)
 {
-    window = new tray_window(db), this;
+    window = new tray_window(db);
     window->show(); // remove
 
     menu = new QMenu(this);

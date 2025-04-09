@@ -5,7 +5,7 @@ add_library(ai ${SRC_FILES} ${HEADER_FILES})
 
 find_package(CURL REQUIRED)
 
-target_link_libraries(ai PUBLIC CURL::libcurl)
+target_link_libraries(ai PUBLIC CURL::libcurl json)
 target_include_directories(ai PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(ai_test "test.cpp")

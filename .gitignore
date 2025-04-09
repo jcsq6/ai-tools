@@ -3,3 +3,4 @@
 build*/
 database/
 .DS_Store
+hotkey-config.json

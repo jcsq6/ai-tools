@@ -1,5 +1,4 @@
 #pragma once
-#include "widget_creator.h"
 #include "tray.h"
 
 #include <vector>
