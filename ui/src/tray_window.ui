@@ -56,12 +56,12 @@ border-bottom: 1px solid rgb(180, 179, 178);</string>
        <number>0</number>
       </property>
       <property name="leftMargin">
-       <number>0</number>
+       <number>12</number>
       </property>
       <property name="rightMargin">
        <number>0</number>
       </property>
-      <item>
+      <item alignment="Qt::AlignmentFlag::AlignLeft">
        <widget class="QPushButton" name="SettingsButton">
         <property name="text">
          <string/>
@@ -141,59 +141,48 @@ border-bottom: 1px solid rgb(180, 179, 178);</string>
    <item>
     <widget class="QStackedWidget" name="Pages">
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="SettingsPage">
-      <widget class="QWidget" name="layoutWidget">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>301</width>
-         <height>171</height>
-        </rect>
+      <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0,1,0,3">
+       <property name="spacing">
+        <number>0</number>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="sizeConstraint">
-         <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
-        </property>
-        <property name="leftMargin">
-         <number>10</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>10</number>
-        </property>
-        <property name="bottomMargin">
-         <number>0</number>
-        </property>
-        <item>
-         <widget class="QPushButton" name="HistoryButton">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>65</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>22</pointsize>
-            <italic>false</italic>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">QPushButton {
+       <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item alignment="Qt::AlignmentFlag::AlignHCenter">
+        <widget class="QPushButton" name="HistoryButton">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>250</width>
+           <height>65</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>22</pointsize>
+           <italic>false</italic>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
 	padding:15px;
 	text-align:left;
 	border: 1px solid rgb(180, 179, 178);
@@ -203,46 +192,59 @@ border-bottom: 1px solid rgb(180, 179, 178);</string>
 QPushButton:hover {
 	background-color: rgb(238, 236, 233);
 }</string>
-          </property>
-          <property name="text">
-           <string>  History</string>
-          </property>
-          <property name="icon">
-           <iconset resource="../../assets/TrayWindow.qrc">
-            <normaloff>:/assets/history.png</normaloff>:/assets/history.png</iconset>
-          </property>
-          <property name="iconSize">
-           <size>
-            <width>24</width>
-            <height>24</height>
-           </size>
-          </property>
-          <property name="autoRepeat">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="KeybindsButton">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>65</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>22</pointsize>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">QPushButton {
+         </property>
+         <property name="text">
+          <string>  History</string>
+         </property>
+         <property name="icon">
+          <iconset resource="../../assets/TrayWindow.qrc">
+           <normaloff>:/assets/history.png</normaloff>:/assets/history.png</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>24</width>
+           <height>24</height>
+          </size>
+         </property>
+         <property name="autoRepeat">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item alignment="Qt::AlignmentFlag::AlignHCenter">
+        <widget class="QPushButton" name="KeybindsButton">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>250</width>
+           <height>65</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>22</pointsize>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
 	padding:15px;
 	text-align:left;
 	border: 1px solid rgb(180, 179, 178);
@@ -252,24 +254,36 @@ QPushButton:hover {
 QPushButton:hover {
 	background-color: rgb(238, 236, 233);
 }</string>
-          </property>
-          <property name="text">
-           <string>  Keybinds</string>
-          </property>
-          <property name="icon">
-           <iconset resource="../../assets/TrayWindow.qrc">
-            <normaloff>:/assets/keyboard.png</normaloff>:/assets/keyboard.png</iconset>
-          </property>
-          <property name="iconSize">
-           <size>
-            <width>24</width>
-            <height>24</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
+         </property>
+         <property name="text">
+          <string>  Keybinds</string>
+         </property>
+         <property name="icon">
+          <iconset resource="../../assets/TrayWindow.qrc">
+           <normaloff>:/assets/keyboard.png</normaloff>:/assets/keyboard.png</iconset>
+         </property>
+         <property name="iconSize">
+          <size>
+           <width>24</width>
+           <height>24</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
      </widget>
      <widget class="QWidget" name="HistoryPage">
       <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -409,7 +423,7 @@ QPushButton:hover {
 }
 
 QHeaderView {
-	background-color: rgb(242, 239, 235);
+	background-color: rgb(179, 177, 174);
     font-weight: bold;
     border: none;
 	border-top-left-radius: 8px;
@@ -417,10 +431,12 @@ QHeaderView {
 }
 
 QHeaderView::section:horizontal {
-    border: none;
+	background-color: rgb(226, 226, 226);
+     border: none;
 	padding: 4px;
 	border-bottom: 1px solid rgb(180, 179, 178);
 	border-radius: 0;
+    font-weight: bold;
 }
 
 QHeaderView::section:horizontal:first {
@@ -439,6 +455,9 @@ QHeaderView::section:horizontal:last {
            </property>
            <property name="editTriggers">
             <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+           </property>
+           <property name="selectionMode">
+            <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
            </property>
            <property name="showGrid">
             <bool>false</bool>

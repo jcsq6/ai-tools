@@ -4,19 +4,17 @@
 #include <chrono>
 #include <print>
 
-#include "reword.h"
-
 #include "window_handler.h"
 #include "hotkey_handler.h"
 
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    app.setQuitOnLastWindowClosed(false);
 
-    hotkey_handler hotkey;
-
-    ai::database db("database");
-    window_handler handler(db, &app);
+    ai_handler ai;
+    window_handler windows(ai.database(), &app);
+    hotkey_handler hotkeys(windows, ai);
 
     return app.exec();
 }

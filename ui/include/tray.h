@@ -18,8 +18,10 @@ class tray_window : public QWidget
 {
     Q_OBJECT
 public:
-    explicit tray_window(const ai::database &db, QWidget *parent = nullptr);
+    explicit tray_window(ai::database &db, QWidget *parent = nullptr);
     ~tray_window();
+
+    auto &database() const { return *M_db; }
 
 public slots:
     void update_history();
@@ -30,15 +32,18 @@ private slots:
 private:
     std::unique_ptr<Ui::TrayWindow> M_ui;
     QStandardItemModel *M_model;
-    const ai::database *M_db;
+    ai::database *M_db;
 };
 
 class tray : public QWidget
 {
     Q_OBJECT
 public:
-    explicit tray(const ai::database &db, QWidget *parent = nullptr);
+    explicit tray(ai::database &db, QWidget *parent = nullptr);
     ~tray() = default;
+
+    auto &database() const { return window->database(); }
+    auto &get_window() const { return *window; }
 
 private:
     tray_window *window;

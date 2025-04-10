@@ -1,4 +1,5 @@
 #include "hotkey_handler.h"
+#include "uitools.h"
 
 #include <fstream>
 #include <print>
@@ -20,7 +21,7 @@ hotkey_handler::hotkey::hotkey(std::string_view name, std::string_view combinati
         std::print(std::cerr, "Failed to register hotkey: {}\n", combination);
         return;
     }
-    QObject::connect(handle, &QHotkey::activated, qApp, callback);
+    QObject::connect(handle, &QHotkey::activated, qApp, std::forward<decltype(callback)>(callback));
 }
 
 void hotkey_handler::load_config()
@@ -37,9 +38,16 @@ void hotkey_handler::load_config()
     {
         std::string name = item["name"];
         std::string combination = item["combination"];
-        M_hotkeys.emplace_back(name, combination, [this, name]() {
-            std::print("Hotkey {} activated\n", name);
-        });
+        std::function<void()> callback;
+        if (name == "Reword")
+            callback = std::bind(&hotkey_handler::make_reword_window, this);
+        else
+        {
+            std::print(std::cerr, "Unknown hotkey name: {}\n", name);
+            continue;
+        }
+
+        M_hotkeys.emplace_back(name, combination, std::move(callback));
     }
 }
 
@@ -57,9 +65,17 @@ void hotkey_handler::save_config()
     file << j.dump(4);
 }
 
+void hotkey_handler::make_reword_window()
+{
+    auto res = M_window_handler->create<reword_window>(M_ai->reworder(), M_ai->database(), *M_window_handler);
+    res->setAttribute(Qt::WA_DeleteOnClose);
+    res->setWindowFlag(Qt::WindowStaysOnTopHint);
+    res->raise();
+    res->activateWindow();
+    res->show();
+}
+
 void hotkey_handler::load_defaults()
 {
-    M_hotkeys.emplace_back("Reword", "Meta+Ctrl+R", [this]() {
-        std::print("Default hotkey activated\n");
-    });
+    M_hotkeys.emplace_back("Reword", "Meta+Ctrl+R", std::bind(&hotkey_handler::make_reword_window, this));
 }

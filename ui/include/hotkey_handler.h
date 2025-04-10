@@ -3,6 +3,9 @@
 #include <string_view>
 #include <vector>
 
+#include "window_handler.h"
+#include "ai_handler.h"
+
 class QHotkey;
 
 class hotkey_handler
@@ -17,7 +20,7 @@ class hotkey_handler
 public:
     static constexpr std::string_view config_file = "hotkey-config.json";
 
-    hotkey_handler()
+    hotkey_handler(window_handler &win_handle, ai_handler &ai) : M_window_handler{&win_handle}, M_ai(&ai)
     {
         load_config();
     }
@@ -28,6 +31,11 @@ public:
     }
 private:
     std::vector<hotkey> M_hotkeys;
+    window_handler *M_window_handler;
+    ai_handler *M_ai;
+
+    void make_reword_window();
+
 
     void load_config();
     void save_config();

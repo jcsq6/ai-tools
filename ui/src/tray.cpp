@@ -1,8 +1,9 @@
 #include "tray.h"
-#include "ui_tray_window.h"
 
 #include "history_item.h"
+
 #include "ui_history_item.h"
+#include "ui_tray_window.h"
 
 #include "tools.h"
 
@@ -64,6 +65,15 @@ public:
 
 Q_DECLARE_METATYPE(const ai::database::entry*)
 
+auto plain_format(const std::string &response) {
+    return std::format("<html>"
+                       "<body>"
+                       "<p style='font-size:11px; color: black;'>{}</p>"
+                       "</body>"
+                       "</html>",
+                       response);
+};
+
 history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
     QWidget(parent, Qt::Window | Qt::WindowStaysOnTopHint),
     M_ui(new Ui::HistoryItem)
@@ -83,7 +93,7 @@ history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
         if (entry.assistant == "Reworder")
             response_string = QString::fromStdString(ai::reworder::format(message.response));
         else
-            response_string = QString::fromStdString(message.response);
+            response_string = QString::fromStdString(plain_format(message.response));
 
         M_ui->Messages->insertRow(M_ui->Messages->rowCount());
         M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, new QTableWidgetItem(QString::fromStdString(message.input)));
@@ -132,7 +142,7 @@ public:
     }
 };
 
-tray_window::tray_window(const ai::database &db, QWidget *parent) :
+tray_window::tray_window(ai::database &db, QWidget *parent) :
     QWidget(parent),
     M_db(&db),
     M_ui(new Ui::TrayWindow)
@@ -258,7 +268,7 @@ void tray_window::on_conversation_double_clicked(const QModelIndex &index)
     item->show();
 }
 
-tray::tray(const ai::database &db, QWidget *parent) :
+tray::tray(ai::database &db, QWidget *parent) :
     QWidget(parent)
 {
     window = new tray_window(db);

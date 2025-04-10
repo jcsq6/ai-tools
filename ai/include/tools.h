@@ -1,12 +1,13 @@
 #pragma once
 #include "ai.h"
+#include <concepts>
 
 AI_BEG
 
 class tool
 {
 public:
-    template <typename Self>
+    template <std::derived_from<tool> Self>
     tool(Self &self, handle &client) :
         M_assistant(
             client,
@@ -59,10 +60,10 @@ public:
             auto explanation = j["explanation"].get<std::string>();
             return std::format("<html>"
                                "<body>"
-                               "<p style='font-weight: bold; font-size: 11px;'>Improved Text:</p>"
-                               "<p style='font-size:9px;'>{}</p>"
-                               "<p style='font-weight: bold; font-size: 11px;'>Explanation:</p>"
-                               "<p style='font-size:9px;'>{}</p>"
+                               "<p style='font-weight: bold; font-size: 12px; color: black;'>Improved Text:</p>"
+                               "<p style='font-size:11px; color: black;'>{}</p>"
+                               "<p style='font-weight: bold; font-size: 12px; color: black;'>Explanation:</p>"
+                               "<p style='font-size:11px; color: black;'>{}</p>"
                                "</body>"
                                "</html>",
                                improved, explanation);
@@ -72,7 +73,7 @@ public:
             std::print(std::cerr, "Error parsing response: {}\n", e.what());
             return std::format("<html>"
                                "<body>"
-                               "<p style='font-size:9px;'>{}</p>"
+                               "<p style='font-size:11px; color: black;'>{}</p>"
                                "</body>"
                                "</html>",
                                response);
