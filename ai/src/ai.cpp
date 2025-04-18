@@ -61,7 +61,6 @@ assistant::assistant(handle &_client,
     if (!response_format.empty())
         M_request["text"] = response_format;
     M_request["previous_response_id"] = nullptr;
-    M_request["input"] = std::string();
 }
 
 std::string_view trimmed(std::string_view str)
@@ -211,18 +210,24 @@ size_t thread::sse_write(void *contents, size_t size, size_t nmemb, void *userp)
     return total_size;
 }
 
-void thread::send(std::string_view input, std::shared_ptr<stream_handler> res)
+void thread::send(nlohmann::json input, std::shared_ptr<stream_handler> res)
 {
+    if (!input.is_array())
+    {
+        std::print(std::cerr, "Input must be an array.\n");
+        return;
+    }
+
     if (M_thread.joinable())
         join();
 
-    auto runner = [this, input, res = std::move(res)]()
+    auto runner = [this, input = std::move(input), res = std::move(res)]()
     {
         res->reset();
         try
         {
             auto &request = M_assistant->M_request;
-            request["input"] = std::string(input);
+            request["input"] = std::move(input);
             if (!M_messages.empty())
                 request["previous_response_id"] = M_messages.back().id;
 
@@ -277,8 +282,20 @@ void thread::send(std::string_view input, std::shared_ptr<stream_handler> res)
                 else
                     throw std::runtime_error(std::format("Request failed with code {}: {}", res->M_stream.err, res->M_stream.err_msg));
             }
+            
+            auto text_input = [&input]() {
+                for (const auto &item : input)
+                    if (item.contains("content"))
+                        for (const auto &content : item["content"])
+                        {
+                            if (content.contains("text"))
+                                return content["text"].get<std::string>();
+                        }
 
-            M_messages.push_back({.id = res->M_stream.response_id, .input = std::string(input), .response = res->M_stream.accum, .created_at = res->M_stream.created_at});
+                return std::string{};
+            }();
+
+            M_messages.push_back({.id = res->M_stream.response_id, .input = text_input, .response = res->M_stream.accum, .created_at = res->M_stream.created_at});
         } catch (...)
         {
             M_exception = std::current_exception();

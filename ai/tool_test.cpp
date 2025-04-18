@@ -3,6 +3,7 @@
 #include "tools.h"
 #include <print>
 #include <iostream>
+#include <fstream>
 
 int main(int argc, char *argv[])
 {
@@ -20,7 +21,12 @@ int main(int argc, char *argv[])
             }
         });
 
-        thread.send("This is a paragraph that is not written very well. It has a lot of issues, like grammar problems and unclear ideas, and it doesn't really make sense. I think it could be improved a lot if someone could help make it better and easier to understand.", res);
+        constexpr std::string_view filename = "assets/tool_test.jpg";
+        std::ifstream file(filename, std::ios::binary);
+        auto image = std::ranges::subrange{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}} | std::ranges::to<std::vector>();
+        
+        auto text = "This is a paragraph that is not written very well. It has a lot of issues, like grammar problems and unclear ideas, and it doesn't really make sense. I think it could be improved a lot if someone could help make it better and easier to understand.";
+        reworder.send(thread, text, std::as_bytes(std::span(image)), res);
 
         ai::database db("database", false);
         db.append(thread);

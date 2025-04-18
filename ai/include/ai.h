@@ -109,6 +109,8 @@ protected:
     friend class thread;
 };
 
+class tool;
+
 class thread
 {
 public:
@@ -124,7 +126,14 @@ public:
 
     auto &get_assistant() const { return *M_assistant; }
 
-    void send(std::string_view input, std::shared_ptr<stream_handler> res);
+    void send(nlohmann::json input, std::shared_ptr<stream_handler> res);
+
+    template <std::derived_from<tool> Tool>
+    void send(Tool &tool, auto &&... args)
+    {
+        tool.send(*this, std::forward<decltype(args)>(args)...);
+    }
+
     const auto &get_messages() const { return M_messages; }
 
     void join()

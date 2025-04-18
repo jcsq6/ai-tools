@@ -1,6 +1,7 @@
 #pragma once
 #include "ai.h"
 #include <concepts>
+#include <span>
 
 AI_BEG
 
@@ -47,7 +48,11 @@ public:
     reworder(handle &client) : tool(*this, client) {}
 
     static constexpr std::string_view name() { return "Reworder"; }
-    static constexpr std::string_view instructions() { return "Improve the given text, rewording if necessary."; }
+    static constexpr std::string_view instructions() {
+        return "Improve the provided text while taking into account any textual context from an accompanying screenshot. "
+               "If a screenshot is provided, use its context to improve clarity and ensure the reworded text accurately reflects the original meaning. "
+               "Provide a clear and succinct explanation of your reasoning";
+    }
     static constexpr std::string_view model() { return "gpt-4o"; }
     static const nlohmann::json &schema() { return M_schema; }
 
@@ -79,6 +84,8 @@ public:
                                response);
         }
     }
+
+    void send(thread &th, std::string_view selected, std::span<const std::byte> image, std::shared_ptr<stream_handler> res);
 
 private:
     static nlohmann::json M_schema;
