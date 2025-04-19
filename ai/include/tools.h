@@ -48,12 +48,8 @@ public:
     reworder(handle &client) : tool(*this, client) {}
 
     static constexpr std::string_view name() { return "Reworder"; }
-    static constexpr std::string_view instructions() {
-        return "Improve the provided text while taking into account any textual context from an accompanying screenshot. "
-               "If a screenshot is provided, use its context to improve clarity and ensure the reworded text accurately reflects the original meaning. "
-               "Provide a clear and succinct explanation of your reasoning";
-    }
-    static constexpr std::string_view model() { return "gpt-4o"; }
+    static inline std::string_view instructions() { return M_instructions; }
+    static constexpr std::string_view model() { return "gpt-4.1"; }
     static const nlohmann::json &schema() { return M_schema; }
 
     static std::string format(std::string_view response)
@@ -89,6 +85,7 @@ public:
 
 private:
     static nlohmann::json M_schema;
+    static std::string_view M_instructions;
 };
 
 AI_END
