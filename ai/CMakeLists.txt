@@ -9,10 +9,10 @@ target_link_libraries(ai PUBLIC CURL::libcurl json cppcodec)
 target_include_directories(ai PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(ai_test "test.cpp")
-target_link_libraries(ai_test PRIVATE ai)
+target_link_libraries(ai_test PUBLIC ai)
 
 add_executable(tool_test "tool_test.cpp")
-target_link_libraries(tool_test PRIVATE ai)
+target_link_libraries(tool_test PUBLIC ai)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND WIN32)
     target_link_libraries(ai_test PUBLIC stdc++exp)

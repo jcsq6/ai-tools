@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
         auto image = std::ranges::subrange{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}} | std::ranges::to<std::vector>();
         
         auto text = "This is a paragraph that is not written very well. It has a lot of issues, like grammar problems and unclear ideas, and it doesn't really make sense. I think it could be improved a lot if someone could help make it better and easier to understand.";
-        reworder.send(thread, text, image, res);
+        reworder.send(thread, text, "", image, res);
 
         ai::database db("database", false);
         db.append(thread);
