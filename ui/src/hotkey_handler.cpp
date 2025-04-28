@@ -1,6 +1,7 @@
 #include "hotkey_handler.h"
 #include "uitools.h"
 
+#include <__expected/expected.h>
 #include <fstream>
 #include <print>
 #include <iostream>
@@ -8,6 +9,7 @@
 
 #include <json.hpp>
 
+#include <string>
 #include <system.h>
 
 #include <QHotkey>
@@ -70,16 +72,26 @@ void hotkey_handler::save_config()
 
 void hotkey_handler::make_prompt_window()
 {
-    context ctx{
-        .selected_text = sys::get_selected_text() |
-                         std::views::drop_while([](char c) { return std::isspace(c); }) |
-                         std::views::reverse | 
-                         std::views::drop_while([](char c) { return std::isspace(c); }) |
-                         std::views::reverse |
-                         std::ranges::to<std::string>(),
-        .window = sys::capture_focused(),
-        .screen = sys::capture_screen()
-    };
+    context ctx;
+    if (auto selected = sys::get_selected_text())
+        ctx.selected_text = *selected |
+                            std::views::drop_while([](char c) { return std::isspace(c); }) |
+                            std::views::reverse | 
+                            std::views::drop_while([](char c) { return std::isspace(c); }) |
+                            std::views::reverse |
+                            std::ranges::to<std::string>();
+    else
+        std::println("No text selected: {}", selected.error());
+
+    if (auto focused = sys::capture_focused())
+        ctx.window = *std::move(focused);
+    else
+        std::println("No focused window: {}", focused.error());
+
+    if (auto screen = sys::capture_screen())
+        ctx.screen = *std::move(screen);
+    else
+        std::println("No screen captured: {}", screen.error());
 
     auto res = M_window_handler->create<prompt_window>(*M_ai, *M_window_handler, std::move(ctx));
     res->setAttribute(Qt::WA_DeleteOnClose);

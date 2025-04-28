@@ -1,4 +1,9 @@
 #import <ApplicationServices/ApplicationServices.h>
+#include <CoreGraphics/CGEventTypes.h>
+#include <Foundation/NSObjCRuntime.h>
+#include <CoreGraphics/CGImage.h>
+#include <__expected/unexpect.h>
+#include <__expected/expected.h>
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #include <Vision/Vision.h>
@@ -63,32 +68,29 @@ Manager::Manager()
         throw std::runtime_error("Failed to request permissions");
 }
 
-//template <typename T>
-//CFptr<T> get_parameterized_element(CFStringRef attribute, AXUIElementRef element, CFTypeRef parameter)
-//{
-//  CFTypeRef value = nullptr;
-//  AXError err = AXUIElementCopyParameterizedAttributeValue(
-//                  element,
-//                  attribute,
-//                  parameter,
-//                  &value
-//                );
-//  if (err != kAXErrorSuccess || !value)
-//    throw std::runtime_error(std::format(
-//      "AXUIElementCopyParameterizedAttributeValue failed: {}",
-//      (int)err
-//    ));
-//  return CFptr<T>((T)value);
-//}
+template <typename T>
+std::expected<CFptr<T>, std::string> get_parameterized_element(CFStringRef attribute, AXUIElementRef element, CFTypeRef parameter)
+{
+ CFTypeRef value = nullptr;
+ AXError err = AXUIElementCopyParameterizedAttributeValue(
+                 element,
+                 attribute,
+                 parameter,
+                 &value
+               );
+ if (err != kAXErrorSuccess || !value)
+   return std::unexpected(std::format("AXUIElementCopyParameterizedAttributeValue failed: {}", (int)err));
+ return CFptr<T>((T)value);
+}
 
 template <typename T = AXUIElementRef>
-CFptr<T> get_element(CFStringRef element, AXUIElementRef parent = NULL)
+std::expected<CFptr<T>, std::string> get_element(CFStringRef element, AXUIElementRef parent = NULL)
 {
     bool free = false;
     if (!parent)
     {
         if (!(parent = AXUIElementCreateSystemWide()))
-            throw std::runtime_error("Failed to create system-wide element");
+            return std::unexpected("Failed to create system-wide element");
         free = true;
     }
     
@@ -100,116 +102,145 @@ CFptr<T> get_element(CFStringRef element, AXUIElementRef parent = NULL)
         CFRelease(parent);
     
     if (errFocus != kAXErrorSuccess || !focused)
-        throw std::runtime_error(std::format("Failed to get element: {}", (int)errFocus));
+        return std::unexpected(std::format("Failed to get element: {}", (int)errFocus));
     
     return CFptr<T>(focused);
 }
 
-typedef NSArray<NSDictionary<NSPasteboardType, NSData *> *> PBBackup;
+static std::expected<std::string, std::string> try_ax_selected_text() {
+    auto focused = get_element(kAXFocusedUIElementAttribute);
+    if (!focused)
+        return std::unexpected("No focused element");
 
-static PBBackup *snapshot_pasteboard(NSPasteboard *pb)
-{
-    NSMutableArray *backup = [NSMutableArray arrayWithCapacity:pb.pasteboardItems.count];
-
-    for (NSPasteboardItem *item in pb.pasteboardItems) {
-        NSMutableDictionary *payload = [NSMutableDictionary dictionaryWithCapacity:item.types.count];
-
-        for (NSPasteboardType type in item.types) {
-            NSData *data = [item dataForType:type];
-            if (data) payload[type] = data;
-        }
-        [backup addObject:payload];
-    }
-    return backup;
-}
-
-static void restore_pasteboard(NSPasteboard *pb, PBBackup *backup)
-{
-    [pb clearContents];
-
-    NSMutableArray<NSPasteboardItem *> *items = [NSMutableArray arrayWithCapacity:backup.count];
-    for (NSDictionary<NSPasteboardType, NSData *> *payload in backup) {
-        NSPasteboardItem *item = [[NSPasteboardItem alloc] init];
-        for (NSPasteboardType type in payload) {
-            [item setData:payload[type] forType:type];
-        }
-        [items addObject:item];
-    }
-    [pb writeObjects:items];
-}
-
-
-std::string Manager::get_selected_text()
-{
-    try
+    CFArrayRef names = NULL;
+    AXError err = AXUIElementCopyAttributeNames(focused->get(), &names);
+    if (err == kAXErrorSuccess && names != NULL)
     {
-        auto focused = get_element(kAXFocusedUIElementAttribute);
-        
-        CFArrayRef names = NULL;
-        AXError err = AXUIElementCopyAttributeNames(focused.get(), &names);
-        if (err == kAXErrorSuccess && names != NULL)
-        {
-            NSArray *attributeList = CFBridgingRelease(names);
+        NSArray *attributeList = CFBridgingRelease(names);
 
-            if ([attributeList containsObject:(__bridge NSString *)kAXSelectedTextAttribute])
+        auto has_element = [attributeList](auto attr)
+        {
+            return [attributeList containsObject:(__bridge NSString *)attr];
+        };
+
+        if (has_element(kAXSelectedTextAttribute))
+        {
+            if (auto selected_text = get_element(kAXSelectedTextAttribute, focused->get()))
             {
-                auto selected_text = get_element(kAXSelectedTextAttribute, focused.get());
-                NSString *text = [(__bridge NSString *)selected_text.get() copy];
+                NSString *text = [(__bridge NSString *)selected_text->get() copy];
                 return std::string([text UTF8String]);
             }
         }
+        if (has_element(kAXSelectedTextRangeAttribute))
+        {
+            auto range_value = get_element<AXValueRef>(kAXSelectedTextRangeAttribute, focused->get());
+            if (!range_value)
+                return std::unexpected("Failed to get selected text range");
+        
+            CFRange range;
+            AXValueGetValue(range_value->get(), kAXValueTypeCFRange, &range);
+
+            if (auto str = get_parameterized_element<CFTypeRef>(kAXAttributedStringForRangeParameterizedAttribute, focused->get(), range_value->get()))
+            {
+                NSString *text = [(__bridge NSAttributedString *)str->get() string];
+                return std::string([text UTF8String]);
+            }
+            else
+                return std::unexpected("Failed to get attributed string");
+        }
     }
-    catch (const std::runtime_error &e)
-    {
-    }
-    
-    auto pb = [NSPasteboard generalPasteboard];
-    PBBackup *backup = snapshot_pasteboard(pb);
-    [pb clearContents];
-    
-    auto src = CFptr(CGEventSourceCreate(kCGEventSourceStateHIDSystemState));
-    auto down = CFptr(CGEventCreateKeyboardEvent(src.get(), (CGKeyCode)kVK_ANSI_C, true));
-    auto up = CFptr(CGEventCreateKeyboardEvent(src.get(), (CGKeyCode)kVK_ANSI_C, false));
-    CGEventSetFlags(down.get(), kCGEventFlagMaskCommand);
-    CGEventSetFlags(up.get(), kCGEventFlagMaskCommand);
-    CGEventPost(kCGSessionEventTap, down.get());
-    CGEventPost(kCGSessionEventTap, up.get());
-    
-    [NSThread sleepForTimeInterval:.05];
-    
-    NSString *copied = [pb stringForType:NSPasteboardTypeString];
-    
-    restore_pasteboard(pb, backup);
-    
-    if (!copied)
-        throw std::runtime_error("Failed to copy text");
-    
-    return std::string([copied UTF8String]);
+
+    return std::unexpected("No AX elements exposed");
 }
 
-std::string Manager::ocr(const CFptr<CGImageRef> &image)
+static std::expected<std::string, std::string> try_clipboard()
 {
-    open_image(image);
-    return "opened";
-}
-
-CFptr<CGImageRef> Manager::get_focused_window()
-{
-    CGRect frame;
-    
     try
     {
-            auto app = get_element(kAXFocusedApplicationAttribute);
-            auto focused = get_element(kAXFocusedWindowAttribute, app.get());
-            auto frame_value = get_element<AXValueRef>(CFSTR("AXFrame"), focused.get());
+        NSPasteboard *pb = [NSPasteboard generalPasteboard];
+        auto before = pb.changeCount;
+
+        NSMutableArray<NSPasteboardItem *> *backup = @[].mutableCopy;
+        for (NSPasteboardItem *item in [pb pasteboardItems])
+        {
+            NSPasteboardItem *copy = [NSPasteboardItem new];
+            for (NSString *type in [item types])
+            {
+                NSData *data = [item dataForType:type];
+                if (data)
+                    [copy setData:data forType:type];
+            }
+            [backup addObject:copy];
+        }
         
-            AXValueGetValue(frame_value.get(), kAXValueTypeCGRect, &frame);
+        auto src = CFptr(CGEventSourceCreate(kCGEventSourceStateCombinedSessionState));
+        auto down = CFptr(CGEventCreateKeyboardEvent(src.get(), (CGKeyCode)kVK_ANSI_C, true));
+        auto up = CFptr(CGEventCreateKeyboardEvent(src.get(), (CGKeyCode)kVK_ANSI_C, false));
+        CGEventSetFlags(down.get(), kCGEventFlagMaskCommand);
+        CGEventSetFlags(up.get(), kCGEventFlagMaskCommand);
+        CGEventPost(kCGSessionEventTap, down.get());
+        CGEventPost(kCGSessionEventTap, up.get());
+
+        const NSTimeInterval timeout = 0.5;
+        NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
+        while (pb.changeCount == before && [deadline timeIntervalSinceNow] > 0) {
+            [NSThread sleepForTimeInterval:.01];
+        }
+
+        NSString *copied = [pb stringForType:NSPasteboardTypeString];
+        
+        [pb clearContents];
+        [pb writeObjects:backup];
+
+        if (!copied || [copied length] == 0)
+            return std::unexpected("No text found in clipboard");
+        
+        return std::string([copied UTF8String]);
     }
     catch (...)
     {
+        return std::unexpected(std::string("unknown error"));
+    }
+}
+
+std::expected<std::string, std::string> Manager::get_selected_text()
+{
+    if (auto ax = try_ax_selected_text())
+        return *ax;
+    else
+        std::print(std::cerr, "AX error: {}\n", ax.error());
+    
+    // if (auto as = try_apple_script_selection())
+    //     return *as;
+    // else
+    //     std::print(std::cerr, "AppleScript error: {}\n", as.error());
+
+    if (auto clipboard = try_clipboard())
+        return *clipboard;
+    else
+        std::print(std::cerr, "Clipboard error: {}\n", clipboard.error());
+    
+    return std::unexpected("No text found");
+}
+
+std::expected<CFptr<CGImageRef>, std::string> Manager::get_focused_window()
+{
+    CGRect frame;
+    if (auto app = get_element(kAXFocusedApplicationAttribute))
+    {   
+        if (auto focused = get_element(kAXFocusedWindowAttribute, app->get()))
+            if (auto frame_value = get_element<AXValueRef>(CFSTR("AXFrame"), focused->get()))
+                AXValueGetValue(frame_value->get(), kAXValueTypeCGRect, &frame);
+            else
+                return std::unexpected("Failed to get focused window");
+        else
+            return std::unexpected("No focused window");
+    }
+    else
+    {
         NSRunningApplication *front = [[NSWorkspace sharedWorkspace] frontmostApplication];
         if (!front)
-            throw std::runtime_error("Unable to determine the frontmost application");
+            return std::unexpected("No frontmost application");
 
         pid_t owner = [front processIdentifier];
 
@@ -224,20 +255,20 @@ CFptr<CGImageRef> Manager::get_focused_window()
             }
         
         if (!info)
-            throw std::runtime_error("No windows found");
+            return std::unexpected("No windows found");
 
         NSDictionary *bounds = info[(id)kCGWindowBounds];
         if (!CGRectMakeWithDictionaryRepresentation((CFDictionaryRef)bounds, &frame))
-            throw std::runtime_error("Failed to get window bounds");
+            return std::unexpected("Failed to get window bounds");
     }
     
-    auto image = screenshot(frame);
-    if (!image)
-        throw std::runtime_error("Couldn't take screenshot");
-    return image;
+    if (auto image = screenshot(frame))
+        return image;
+    else
+        return std::unexpected(std::format("Failed to capture image: {}", image.error()));
 }
 
-CFptr<CGImageRef> Manager::screenshot(const CGRect region)
+std::expected<CFptr<CGImageRef>, std::string> Manager::screenshot(const CGRect region)
 {
     __block CGImageRef captured = NULL;
     __block NSError *err = nil;
@@ -254,7 +285,7 @@ CFptr<CGImageRef> Manager::screenshot(const CGRect region)
     dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
     
     if (err)
-        throw std::runtime_error(std::format("Failed to capture image: {}", [err.localizedDescription UTF8String]));
+        return std::unexpected(std::format("Failed to capture image: {}", [err.localizedDescription UTF8String]));
     
     return CFptr(captured);
 }
@@ -282,35 +313,29 @@ void Manager::open_image(const CFptr<CGImageRef> &image)
         throw std::runtime_error("Failed to delete image");
 }
 
-std::string get_selected_text(void)
+std::expected<std::string, std::string> get_selected_text(void)
 {
-    try
-    {
-        return Manager::get_instance().get_selected_text();
-    }
-    catch (const std::runtime_error &e)
-    {
-        std::cerr << e.what() << std::endl;
-        return {};
-    }
+    return Manager::get_instance().get_selected_text();
 }
 
-std::vector<std::byte> capture_focused()
+std::expected<std::vector<std::byte>, std::string> capture_focused()
 {
     auto image = Manager::get_instance().get_focused_window();
+    if (!image)
+        return std::unexpected("Failed to capture focused window");
     
     auto data = CFptr(CFDataCreateMutable(NULL, 0));
     if (!data)
-        throw std::runtime_error("Failed to create data");
+        return std::unexpected("Failed to create data");
     
     CFStringRef type = (__bridge CFStringRef)[[UTTypePNG identifier] copy];
     auto dest = CFptr(CGImageDestinationCreateWithData(data.get(), type, 1, NULL));
     if (!dest)
-        throw std::runtime_error("Failed to create image destination");
+        return std::unexpected("Failed to create image destination");
     
-    CGImageDestinationAddImage(dest.get(), image.get(), NULL);
+    CGImageDestinationAddImage(dest.get(), image->get(), NULL);
     if (!CGImageDestinationFinalize(dest.get()))
-        throw std::runtime_error("Failed to finalize image destination");
+        return std::unexpected("Failed to finalize image destination");
     
     const UInt8 *bytes = CFDataGetBytePtr(data.get());
     CFIndex length = CFDataGetLength(data.get());
@@ -319,19 +344,17 @@ std::vector<std::byte> capture_focused()
     return result;
 }
 
-std::vector<std::byte> capture_screen()
+std::expected<std::vector<std::byte>, std::string> capture_screen()
 {
-    return {};
+    return std::unexpected("Capture screen not implemented");
 }
 
-void copy(std::string_view text)
+std::expected<void, std::string> copy(std::string_view text)
 {
     NSPasteboard *pb = [NSPasteboard generalPasteboard];
     [pb clearContents];
     
     NSString *str = [NSString stringWithUTF8String:text.data()];
-    if (!str)
-        throw std::runtime_error("Failed to create NSString");
     
     [pb setString:str forType:NSPasteboardTypeString];
 }

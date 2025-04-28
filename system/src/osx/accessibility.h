@@ -1,5 +1,8 @@
 #pragma once
 #include "system.h"
+#include <CoreGraphics/CGImage.h>
+#include <__expected/expected.h>
+#include <string>
 
 #ifdef __OBJC__
 #import <Cocoa/Cocoa.h>
@@ -31,12 +34,11 @@ public:
         return instance;
     }
 
-    std::string get_selected_text();
-    std::string ocr(const CFptr<CGImageRef> &image);
-    CFptr<CGImageRef> get_focused_window();
+    std::expected<std::string, std::string> get_selected_text();
+    std::expected<CFptr<CGImageRef>, std::string> get_focused_window();
     void open_image(const CFptr<CGImageRef> &image);
     
-    CFptr<CGImageRef> screenshot(const CGRect region);
+    std::expected<CFptr<CGImageRef>, std::string> screenshot(const CGRect region);
 };
 
 SYS_END
