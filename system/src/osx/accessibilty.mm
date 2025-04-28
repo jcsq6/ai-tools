@@ -60,7 +60,7 @@ BOOL request_screen()
 Manager::Manager()
 {
     if (!request_screen() || !request_accessibility())
-        exit(-1);
+        throw std::runtime_error("Failed to request permissions");
 }
 
 //template <typename T>
@@ -286,5 +286,10 @@ std::vector<std::byte> capture_focused()
     
     std::vector<std::byte> result(reinterpret_cast<const std::byte *>(bytes), reinterpret_cast<const std::byte *>(bytes) + length);
     return result;
+}
+
+std::vector<std::byte> capture_screen()
+{
+    return {};
 }
 SYS_END

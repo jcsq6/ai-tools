@@ -39,7 +39,7 @@ handle::handle()
     }
 
     std::print(std::cerr, "No OpenAI API key found in environment variables or .env file.\n");
-    std::exit(1);
+    throw std::runtime_error("No OpenAI API key found.");
 }
 
 handle::~handle()
@@ -318,8 +318,6 @@ void json_stream_handler::parse(std::string_view accum)
     constexpr std::string_view close = "]}\"";
 
     bool escaped = false;
-
-    std::print("\nParsing json: {}\n", accum);
 
     for (auto c : modified)
     {

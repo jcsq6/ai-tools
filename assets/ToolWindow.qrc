@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="/assets">
+    <file>send.png</file>
+    <file>chevron-down.png</file>
+    <file>not-found.png</file>
+  </qresource>
+</RCC>

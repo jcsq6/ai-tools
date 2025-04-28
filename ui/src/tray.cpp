@@ -272,10 +272,10 @@ tray::tray(ai::database &db, QWidget *parent) :
     QWidget(parent)
 {
     window = new tray_window(db);
-    window->show(); // remove
+    // window->show(); // remove
 
     menu = new QMenu(this);
-    menu->addAction("Settings", [&] { window->show(); });
+    menu->addAction("Settings", [&] { window->show(); window->raise(); window->activateWindow(); });
     menu->addAction("Exit", [&] { QApplication::exit(); });
 
     icon = new QSystemTrayIcon(QIcon("assets/icon.png"), this);

@@ -7,7 +7,9 @@
 #include "window_handler.h"
 #include "hotkey_handler.h"
 
-int main(int argc, char **argv)
+#include <entry.h>
+
+int app::run(int argc, char **argv)
 {
     QApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);

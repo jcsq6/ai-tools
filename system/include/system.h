@@ -10,4 +10,6 @@ SYS_BEG
 std::string get_selected_text();
 // return jpg image of focused window in bytes
 std::vector<std::byte> capture_focused();
+// return jpg image of screen in bytes
+std::vector<std::byte> capture_screen();
 SYS_END

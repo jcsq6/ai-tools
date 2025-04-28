@@ -4,8 +4,11 @@
 #include <fstream>
 #include <print>
 #include <iostream>
+#include <ranges>
 
 #include <json.hpp>
+
+#include <system.h>
 
 #include <QHotkey>
 
@@ -39,8 +42,8 @@ void hotkey_handler::load_config()
         std::string name = item["name"];
         std::string combination = item["combination"];
         std::function<void()> callback;
-        if (name == "Reword")
-            callback = std::bind(&hotkey_handler::make_reword_window, this);
+        if (name == "Activate")
+            callback = std::bind(&hotkey_handler::make_prompt_window, this);
         else
         {
             std::print(std::cerr, "Unknown hotkey name: {}\n", name);
@@ -65,9 +68,20 @@ void hotkey_handler::save_config()
     file << j.dump(4);
 }
 
-void hotkey_handler::make_reword_window()
+void hotkey_handler::make_prompt_window()
 {
-    auto res = M_window_handler->create<reword_window>(M_ai->reworder(), M_ai->database(), *M_window_handler);
+    context ctx{
+        .selected_text = sys::get_selected_text() |
+                         std::views::drop_while([](char c) { return std::isspace(c); }) |
+                         std::views::reverse | 
+                         std::views::drop_while([](char c) { return std::isspace(c); }) |
+                         std::views::reverse |
+                         std::ranges::to<std::string>(),
+        .window = sys::capture_focused(),
+        .screen = sys::capture_screen()
+    };
+
+    auto res = M_window_handler->create<prompt_window>(*M_ai, *M_window_handler, std::move(ctx));
     res->setAttribute(Qt::WA_DeleteOnClose);
     res->setWindowFlag(Qt::WindowStaysOnTopHint);
     res->raise();
@@ -77,5 +91,5 @@ void hotkey_handler::make_reword_window()
 
 void hotkey_handler::load_defaults()
 {
-    M_hotkeys.emplace_back("Reword", "Meta+Ctrl+R", std::bind(&hotkey_handler::make_reword_window, this));
+    M_hotkeys.emplace_back("Activate", "Meta+Ctrl+R", std::bind(&hotkey_handler::make_prompt_window, this));
 }

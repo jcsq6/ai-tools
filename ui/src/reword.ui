@@ -6,47 +6,217 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>349</width>
-    <height>281</height>
+    <width>400</width>
+    <height>300</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>Form</string>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
-  <property name="autoFillBackground">
-   <bool>false</bool>
+  <property name="minimumSize">
+   <size>
+    <width>0</width>
+    <height>0</height>
+   </size>
+  </property>
+  <property name="sizeIncrement">
+   <size>
+    <width>0</width>
+    <height>0</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Reword</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">background-color: rgb(213, 215, 215);</string>
+   <string notr="true">background-color:rgb(246, 244, 240);
+color: rgb(86, 87, 89);
+</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
-    <number>8</number>
+    <number>-1</number>
+   </property>
+   <property name="leftMargin">
+    <number>12</number>
    </property>
    <property name="topMargin">
-    <number>8</number>
+    <number>12</number>
+   </property>
+   <property name="rightMargin">
+    <number>12</number>
    </property>
    <property name="bottomMargin">
-    <number>8</number>
+    <number>12</number>
    </property>
    <item>
-    <widget class="QWidget" name="Text" native="true">
+    <layout class="QVBoxLayout" name="RevisionLayout" stretch="1,2">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="RevisionLabel">
+       <property name="text">
+        <string>Revision</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTextEdit" name="RevisionText">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>45</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">border: 1px solid rgb(180, 179, 178);
+border-radius: 8px;</string>
+       </property>
+       <property name="sizeAdjustPolicy">
+        <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="placeholderText">
+        <string/>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="ExplanationLayout" stretch="1,2">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="ExplanationLabel">
+       <property name="text">
+        <string>Explanation</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTextEdit" name="ExplanationText">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>45</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">border: 1px solid rgb(180, 179, 178);
+border-radius: 8px;</string>
+       </property>
+       <property name="sizeAdjustPolicy">
+        <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="placeholderText">
+        <string/>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="PromptLayout" stretch="1,2">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="PromptLabel">
+       <property name="text">
+        <string>Additional Prompt</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTextEdit" name="PromptEdit">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>45</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">border: 1px solid rgb(180, 179, 178);
+border-radius: 8px;</string>
+       </property>
+       <property name="sizeAdjustPolicy">
+        <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
+       </property>
+       <property name="readOnly">
+        <bool>false</bool>
+       </property>
+       <property name="placeholderText">
+        <string>e.g. Make it concise and professional</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QFrame" name="horizontalFrame">
      <property name="minimumSize">
       <size>
-       <width>325</width>
-       <height>150</height>
+       <width>0</width>
+       <height>50</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
        <width>16777215</width>
-       <height>200</height>
+       <height>50</height>
       </size>
      </property>
-     <property name="styleSheet">
-      <string notr="true"/>
-     </property>
-     <layout class="QHBoxLayout" name="TextLayout">
+     <layout class="QHBoxLayout" name="SendLayout">
+      <property name="spacing">
+       <number>0</number>
+      </property>
       <property name="leftMargin">
        <number>0</number>
       </property>
@@ -60,200 +230,145 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QTextEdit" name="Improved">
-        <property name="whatsThis">
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButton">
+        <property name="minimumSize">
+         <size>
+          <width>70</width>
+          <height>30</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+	text-align:center;
+	border: 1px solid rgb(180, 179, 178);
+	border-radius: 4px;
+	background-color: rgb(249, 249, 244);	
+}
+QPushButton:hover {
+	background-color: rgb(238, 236, 233);
+}
+QPushButton:checked {
+	background-color: rgb(214, 212, 212);
+}</string>
+        </property>
+        <property name="text">
+         <string>Copy</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButton_2">
+        <property name="minimumSize">
+         <size>
+          <width>70</width>
+          <height>30</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+	text-align:center;
+	border: 1px solid rgb(180, 179, 178);
+	border-radius: 4px;
+	background-color: rgb(249, 249, 244);	
+}
+QPushButton:hover {
+	background-color: rgb(238, 236, 233);
+}
+QPushButton:checked {
+	background-color: rgb(214, 212, 212);
+}</string>
+        </property>
+        <property name="text">
+         <string>Accept</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_3">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QToolButton" name="Send">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>20</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QToolButton {
+	padding: 2px;
+	border-radius: 2px;
+	border: none;
+	background-color: rgba(255, 255, 255, 0);	
+}
+QToolButton:hover {
+	padding: 2px;
+	border-radius: 2px;
+	border: none;
+	background-color: rgba(230, 232, 232, 128);
+}</string>
+        </property>
+        <property name="text">
          <string/>
         </property>
-        <property name="accessibleName">
-         <string/>
+        <property name="icon">
+         <iconset resource="../../assets/ToolWindow.qrc">
+          <normaloff>:/assets/send.png</normaloff>:/assets/send.png</iconset>
         </property>
-        <property name="styleSheet">
-         <string notr="true">border-radius: 5%;
-background-color: rgb(244, 246, 246);
-border: 1px solid black;
-color: black;</string>
+        <property name="iconSize">
+         <size>
+          <width>16</width>
+          <height>16</height>
+         </size>
         </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-        <property name="html">
-         <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-hr { height: 1px; border-width: 0; }
-li.unchecked::marker { content: &quot;\2610&quot;; }
-li.checked::marker { content: &quot;\2612&quot;; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QTextEdit" name="Explanation">
-        <property name="styleSheet">
-         <string notr="true">border-radius: 5%;
-background-color: rgb(244, 246, 246);
-border: 1px solid black;
-color: black;</string>
-        </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QWidget" name="Opts" native="true">
-     <property name="minimumSize">
-      <size>
-       <width>325</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="autoFillBackground">
-      <bool>false</bool>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">border-radius: 5%;
-background-color: rgb(202, 204, 204); border: 1px solid black;</string>
-     </property>
-     <layout class="QHBoxLayout" name="Options">
-      <property name="leftMargin">
-       <number>5</number>
-      </property>
-      <property name="topMargin">
-       <number>5</number>
-      </property>
-      <property name="rightMargin">
-       <number>5</number>
-      </property>
-      <property name="bottomMargin">
-       <number>5</number>
-      </property>
-      <item>
-       <widget class="QTextEdit" name="Refine">
-        <property name="styleSheet">
-         <string notr="true">border-radius: 5%;
-background-color: rgb(244, 246, 246);
-border: 1px solid black;
-color: black;</string>
-        </property>
-        <property name="placeholderText">
-         <string>Refine the prompt</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="Buttons" native="true">
-        <property name="autoFillBackground">
-         <bool>false</bool>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">border: none;</string>
-        </property>
-        <layout class="QVBoxLayout" name="Actions" stretch="0,0,0">
-         <property name="spacing">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QPushButton" name="Redo">
-           <property name="minimumSize">
-            <size>
-             <width>55</width>
-             <height>24</height>
-            </size>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QPushButton {
-    border-radius: 5%;
-    background-color: rgb(143, 145, 145);
-    border: 1px solid black;
-}
-
-QPushButton:pressed {
-    background-color: rgb(173, 176, 176);
-}
-
-QPushButton:hover {
-    background-color: rgb(129, 131, 131);
-}
-</string>
-           </property>
-           <property name="text">
-            <string>Redo</string>
-           </property>
-           <property name="autoDefault">
-            <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="Accept">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>24</height>
-            </size>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QPushButton {
-    border-radius: 5%;
-    background-color: rgb(143, 145, 145);
-    border: 1px solid black;
-}
-
-QPushButton:pressed {
-    background-color: rgb(173, 176, 176);
-}
-
-QPushButton:hover {
-    background-color: rgb(129, 131, 131);
-}
-</string>
-           </property>
-           <property name="text">
-            <string>Accept</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="Copy">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>24</height>
-            </size>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QPushButton {
-    border-radius: 5%;
-    background-color: rgb(143, 145, 145);
-    border: 1px solid black;
-}
-
-QPushButton:pressed {
-    background-color: rgb(173, 176, 176);
-}
-
-QPushButton:hover {
-    background-color: rgb(129, 131, 131);
-}
-</string>
-           </property>
-           <property name="text">
-            <string>Copy</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
        </widget>
       </item>
      </layout>
@@ -261,6 +376,8 @@ QPushButton:hover {
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="../../assets/ToolWindow.qrc"/>
+ </resources>
  <connections/>
 </ui>

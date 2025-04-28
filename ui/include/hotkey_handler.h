@@ -34,8 +34,7 @@ private:
     window_handler *M_window_handler;
     ai_handler *M_ai;
 
-    void make_reword_window();
-
+    void make_prompt_window();
 
     void load_config();
     void save_config();
