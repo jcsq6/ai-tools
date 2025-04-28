@@ -105,6 +105,40 @@ CFptr<T> get_element(CFStringRef element, AXUIElementRef parent = NULL)
     return CFptr<T>(focused);
 }
 
+typedef NSArray<NSDictionary<NSPasteboardType, NSData *> *> PBBackup;
+
+static PBBackup *snapshot_pasteboard(NSPasteboard *pb)
+{
+    NSMutableArray *backup = [NSMutableArray arrayWithCapacity:pb.pasteboardItems.count];
+
+    for (NSPasteboardItem *item in pb.pasteboardItems) {
+        NSMutableDictionary *payload = [NSMutableDictionary dictionaryWithCapacity:item.types.count];
+
+        for (NSPasteboardType type in item.types) {
+            NSData *data = [item dataForType:type];
+            if (data) payload[type] = data;
+        }
+        [backup addObject:payload];
+    }
+    return backup;
+}
+
+static void restore_pasteboard(NSPasteboard *pb, PBBackup *backup)
+{
+    [pb clearContents];
+
+    NSMutableArray<NSPasteboardItem *> *items = [NSMutableArray arrayWithCapacity:backup.count];
+    for (NSDictionary<NSPasteboardType, NSData *> *payload in backup) {
+        NSPasteboardItem *item = [[NSPasteboardItem alloc] init];
+        for (NSPasteboardType type in payload) {
+            [item setData:payload[type] forType:type];
+        }
+        [items addObject:item];
+    }
+    [pb writeObjects:items];
+}
+
+
 std::string Manager::get_selected_text()
 {
     try
@@ -130,10 +164,8 @@ std::string Manager::get_selected_text()
     }
     
     auto pb = [NSPasteboard generalPasteboard];
-    auto old_items = [pb pasteboardItems];
-    NSMutableArray<NSPasteboardItem *> *saved_items = [NSMutableArray array];
-    for (NSPasteboardItem *item in saved_items)
-        [saved_items addObject:[item copy]];
+    PBBackup *backup = snapshot_pasteboard(pb);
+    [pb clearContents];
     
     auto src = CFptr(CGEventSourceCreate(kCGEventSourceStateHIDSystemState));
     auto down = CFptr(CGEventCreateKeyboardEvent(src.get(), (CGKeyCode)kVK_ANSI_C, true));
@@ -147,8 +179,7 @@ std::string Manager::get_selected_text()
     
     NSString *copied = [pb stringForType:NSPasteboardTypeString];
     
-    [pb clearContents];
-    [pb writeObjects:saved_items];
+    restore_pasteboard(pb, backup);
     
     if (!copied)
         throw std::runtime_error("Failed to copy text");
@@ -292,4 +323,17 @@ std::vector<std::byte> capture_screen()
 {
     return {};
 }
+
+void copy(std::string_view text)
+{
+    NSPasteboard *pb = [NSPasteboard generalPasteboard];
+    [pb clearContents];
+    
+    NSString *str = [NSString stringWithUTF8String:text.data()];
+    if (!str)
+        throw std::runtime_error("Failed to create NSString");
+    
+    [pb setString:str forType:NSPasteboardTypeString];
+}
+
 SYS_END

@@ -12,4 +12,5 @@ std::string get_selected_text();
 std::vector<std::byte> capture_focused();
 // return jpg image of screen in bytes
 std::vector<std::byte> capture_screen();
+void copy(std::string_view text);
 SYS_END
