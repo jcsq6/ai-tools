@@ -1,4 +1,6 @@
 #import <ApplicationServices/ApplicationServices.h>
+#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFArray.h>
 #include <CoreGraphics/CGEventTypes.h>
 #include <Foundation/NSObjCRuntime.h>
 #include <CoreGraphics/CGImage.h>
@@ -153,6 +155,31 @@ static std::expected<std::string, std::string> try_ax_selected_text() {
     return std::unexpected("No AX elements exposed");
 }
 
+auto backup_clipboard(NSPasteboard *pb)
+{
+    NSMutableArray<NSPasteboardItem *> *backup = @[].mutableCopy;
+    for (NSPasteboardItem *item in [pb pasteboardItems])
+    {
+        NSPasteboardItem *copy = [NSPasteboardItem new];
+        for (NSString *type in [item types])
+        {
+            NSData *data = [item dataForType:type];
+            if (data)
+                [copy setData:data forType:type];
+        }
+        [backup addObject:copy];
+    }
+    return backup;
+}
+
+void restore_clipboard(NSPasteboard *pb, NSArray<NSPasteboardItem *> *backup)
+{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [pb clearContents];
+        [pb writeObjects:backup];
+    });
+}
+
 static std::expected<std::string, std::string> try_clipboard()
 {
     try
@@ -160,18 +187,7 @@ static std::expected<std::string, std::string> try_clipboard()
         NSPasteboard *pb = [NSPasteboard generalPasteboard];
         auto before = pb.changeCount;
 
-        NSMutableArray<NSPasteboardItem *> *backup = @[].mutableCopy;
-        for (NSPasteboardItem *item in [pb pasteboardItems])
-        {
-            NSPasteboardItem *copy = [NSPasteboardItem new];
-            for (NSString *type in [item types])
-            {
-                NSData *data = [item dataForType:type];
-                if (data)
-                    [copy setData:data forType:type];
-            }
-            [backup addObject:copy];
-        }
+        auto backup = backup_clipboard(pb);
         
         auto src = CFptr(CGEventSourceCreate(kCGEventSourceStateCombinedSessionState));
         auto down = CFptr(CGEventCreateKeyboardEvent(src.get(), (CGKeyCode)kVK_ANSI_C, true));
@@ -189,8 +205,7 @@ static std::expected<std::string, std::string> try_clipboard()
 
         NSString *copied = [pb stringForType:NSPasteboardTypeString];
         
-        [pb clearContents];
-        [pb writeObjects:backup];
+        restore_clipboard(pb, backup);
 
         if (!copied || [copied length] == 0)
             return std::unexpected("No text found in clipboard");
@@ -209,11 +224,6 @@ std::expected<std::string, std::string> Manager::get_selected_text()
         return *ax;
     else
         std::print(std::cerr, "AX error: {}\n", ax.error());
-    
-    // if (auto as = try_apple_script_selection())
-    //     return *as;
-    // else
-    //     std::print(std::cerr, "AppleScript error: {}\n", as.error());
 
     if (auto clipboard = try_clipboard())
         return *clipboard;
@@ -357,6 +367,34 @@ std::expected<void, std::string> copy(std::string_view text)
     NSString *str = [NSString stringWithUTF8String:text.data()];
     
     [pb setString:str forType:NSPasteboardTypeString];
+
+    if (pb.changeCount == 0)
+        return std::unexpected("Failed to copy to clipboard");
+    return {};
+}
+
+std::expected<void, std::string> paste(std::string_view text)
+{
+    NSPasteboard *pb = [NSPasteboard generalPasteboard];
+    
+    auto backup = backup_clipboard(pb);
+    [pb clearContents];
+
+    NSString *str = [NSString stringWithUTF8String:text.data()];
+    [pb setString:str forType:NSPasteboardTypeString];
+
+    auto src = CFptr(CGEventSourceCreate(kCGEventSourceStateCombinedSessionState));
+    auto down = CFptr(CGEventCreateKeyboardEvent(src.get(), (CGKeyCode)kVK_ANSI_V, true));
+    auto up = CFptr(CGEventCreateKeyboardEvent(src.get(), (CGKeyCode)kVK_ANSI_V, false));
+    CGEventSetFlags(down.get(), kCGEventFlagMaskCommand);
+    CGEventSetFlags(up.get(), kCGEventFlagMaskCommand);
+    CGEventPost(kCGSessionEventTap, down.get());
+    CGEventPost(kCGSessionEventTap, up.get());
+
+
+    restore_clipboard(pb, backup);
+
+    return {};
 }
 
 SYS_END

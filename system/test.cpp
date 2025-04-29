@@ -1,5 +1,4 @@
 #include "system.h"
-#include <iostream>
 #include <print>
 #include <thread>
 #include <fstream>
@@ -25,5 +24,11 @@ int app::run(int, char**)
     std::filesystem::path output = std::filesystem::path(home_dir) / "screenshot.jpg";
     std::ofstream file(output, std::ios::binary);
     file.write(reinterpret_cast<const char*>(focused->data()), focused->size());
+
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    if (!sys::paste(*selected))
+        std::println("Failed to paste text");
+    else
+        std::println("Pasted text: {}", *selected);
     return 0;
 }

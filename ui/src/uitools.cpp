@@ -9,6 +9,8 @@
 #include <QtWidgets/qwidget.h>
 #include <string_view>
 
+#include "system.h"
+
 prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&ctx) :
     QWidget(),
     M_context(std::move(ctx)),
@@ -67,7 +69,6 @@ prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&
                 return;
 
             M_context.selected_text = selected.toStdString();
-            qDebug() << "Selected text:" << selected;
 
             auto res = M_handler->create<reword_window>(*M_ai, *M_handler, std::move(M_context), prompt.toStdString());
             res->setAttribute(Qt::WA_DeleteOnClose);
@@ -127,14 +128,45 @@ reword_window::reword_window(ai_handler &ai, window_handler &handler, context &&
 {   
     ui->setupUi(this);
     ui->PromptEdit->setText(QString::fromUtf8(prompt.data()));
+
+    connect(ui->Send, &QToolButton::clicked, [this] { send(); } );
+    connect(ui->Accept, &QToolButton::clicked, [this] {
+        auto revised = ui->RevisionText->toPlainText().toStdString();
+        if (revised.empty())
+            return;
+
+        close();
+        if (auto res = sys::paste(revised); !res)
+        {
+            std::print(std::cerr, "Failed to paste text: {}\n", res.error());
+            *sys::copy(revised);
+        }
+    });
+
+    connect(ui->Copy, &QToolButton::clicked, [this] {
+        auto revised = ui->RevisionText->toPlainText().toStdString();
+        if (revised.empty())
+            return;
+
+        if (auto res = sys::copy(revised); !res)
+            std::print(std::cerr, "Failed to copy text: {}\n", res.error());
+    });
+
     send(M_context.selected_text);
 }
 
 void reword_window::send(std::string_view selected)
 {
-    M_ai->reworder().send(M_thread, selected, ui->PromptEdit->toPlainText().toStdString(), M_context.window, M_stream_handler);
+    if (auto res = M_ai->reworder().send(M_thread, selected, ui->PromptEdit->toPlainText().toStdString(), M_context.window, M_stream_handler); !res)
+    {
+        std::print(std::cerr, "Failed to send request: {}\n", res.error());
+        return;
+    }
+
     ui->PromptEdit->setDisabled(true);
     ui->Send->setDisabled(true);
+    ui->Accept->setDisabled(true);
+    ui->Copy->setDisabled(true);
 }
 
 void reword_window::on_delta(const nlohmann::json &accum)
@@ -161,6 +193,8 @@ void reword_window::on_finish(const nlohmann::json &accum)
         ui->PromptEdit->clear();
         ui->PromptEdit->setDisabled(false);
         ui->Send->setDisabled(false);  
+        ui->Accept->setDisabled(false);
+        ui->Copy->setDisabled(false);
     };
 
     if (QThread::currentThread() == qApp->thread())
