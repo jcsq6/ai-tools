@@ -1,5 +1,5 @@
 #pragma once
-#include <cmath>
+#include <__expected/expected.h>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -9,15 +9,40 @@
 #define SYS_END }
 
 SYS_BEG
-std::expected<std::string, std::string> get_selected_text();
-// return jpg image of focused window in bytes
-std::expected<std::vector<std::byte>, std::string> capture_focused();
+
+template <typename T>
+using result = std::expected<T, std::string>;
+
+class handle;
+
+class window
+{
+public:
+    window();
+    ~window();
+    
+    window(const window&) = delete;
+    window& operator=(const window&) = delete;
+
+    window(window&&);
+    window& operator=(window&&);
+
+    static result<window> get_focused();
+
+    result<std::string> get_selected() const;
+    result<std::vector<std::byte>> get_screenshot() const;
+    result<void> focus() const;
+
+    result<std::string>  get_name() const;
+private:
+    std::unique_ptr<handle> M_handle;
+};
+
 // return jpg image of screen in bytes
-std::expected<std::vector<std::byte>, std::string> capture_screen();
+result<std::vector<std::byte>> capture_screen();
 
 // copy text to clipboard
-std::expected<void, std::string> copy(std::string_view text);
-
+result<void> copy(std::string_view text);
 // "paste" text
-std::expected<void, std::string> paste(std::string_view text);
+result<void> paste(std::string_view text);
 SYS_END

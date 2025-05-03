@@ -73,20 +73,27 @@ void hotkey_handler::save_config()
 void hotkey_handler::make_prompt_window()
 {
     context ctx;
-    if (auto selected = sys::get_selected_text())
-        ctx.selected_text = *selected |
-                            std::views::drop_while([](char c) { return std::isspace(c); }) |
-                            std::views::reverse | 
-                            std::views::drop_while([](char c) { return std::isspace(c); }) |
-                            std::views::reverse |
-                            std::ranges::to<std::string>();
-    else
-        std::println("No text selected: {}", selected.error());
+    if (auto res = sys::window::get_focused())
+    {
+        ctx.handle = std::move(*res);
 
-    if (auto focused = sys::capture_focused())
-        ctx.window = *std::move(focused);
+        if (auto selected = ctx.handle.get_selected())
+            ctx.selected_text = *selected |
+                                std::views::drop_while([](char c) { return std::isspace(c); }) |
+                                std::views::reverse | 
+                                std::views::drop_while([](char c) { return std::isspace(c); }) |
+                                std::views::reverse |
+                                std::ranges::to<std::string>();
+        else
+            std::println("No text selected: {}", selected.error());
+
+        if (auto focused = ctx.handle.get_screenshot())
+            ctx.window = *std::move(focused);
+        else
+            std::println("No focused window: {}", focused.error());
+    }
     else
-        std::println("No focused window: {}", focused.error());
+        std::println("No focused window: {}", res.error());
 
     if (auto screen = sys::capture_screen())
         ctx.screen = *std::move(screen);

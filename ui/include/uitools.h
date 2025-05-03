@@ -8,8 +8,11 @@
 #include "window_handler.h"
 #include "ai_handler.h"
 
+#include "system.h"
+
 struct context
 {
+    sys::window handle;
     std::string selected_text;
     std::vector<std::byte> window;
     std::vector<std::byte> screen;
