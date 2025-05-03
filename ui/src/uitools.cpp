@@ -3,13 +3,15 @@
 #include "ui_reword.h"
 #include "ui_prompt_entry.h"
 
+#include "system.h"
+
 #include <QtCore/qnamespace.h>
 #include <QtCore/qsize.h>
 #include <QtWidgets/qsizepolicy.h>
 #include <QtWidgets/qwidget.h>
-#include <string_view>
+#include <QMessageBox>
 
-#include "system.h"
+#include <string_view>
 
 prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&ctx) :
     QWidget(),
@@ -135,12 +137,26 @@ reword_window::reword_window(ai_handler &ai, window_handler &handler, context &&
         if (revised.empty())
             return;
 
-        close();
-        if (auto res = sys::paste(revised); !res)
+        if (auto focus_res = M_context.handle.focus())
         {
-            std::print(std::cerr, "Failed to paste text: {}\n", res.error());
-            *sys::copy(revised);
+            if (auto paste_res = sys::paste(revised))
+            {
+                close();
+                return;
+            }
+            else
+                std::print(std::cerr, "Failed to paste text: {}\n", paste_res.error());
         }
+        else
+            std::print(std::cerr, "Failed to focus window, copying instead: {}\n", focus_res.error());
+
+        if (auto res = sys::copy(revised); !res)
+        {
+            std::print(std::cerr, "Failed to copy text: {}\n", res.error());
+            return;
+        }
+
+        QMessageBox::warning(this, "Accept Failed", "Failed to paste or copy the revised text. Please try again.");
     });
 
     connect(ui->Copy, &QToolButton::clicked, [this] {
