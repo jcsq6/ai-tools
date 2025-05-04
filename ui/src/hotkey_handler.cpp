@@ -31,7 +31,7 @@ hotkey_handler::hotkey::hotkey(std::string_view name, std::string_view combinati
 
 void hotkey_handler::load_config()
 {
-    std::ifstream file(config_file);
+    std::ifstream file(config_file.data());
     if (!file)
     {
         load_defaults();
@@ -58,7 +58,7 @@ void hotkey_handler::load_config()
 
 void hotkey_handler::save_config()
 {
-    std::ofstream file(config_file);
+    std::ofstream file(config_file.data());
     nlohmann::json j;
     for (const auto &hotkey : M_hotkeys)
     {
