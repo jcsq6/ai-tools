@@ -5,23 +5,25 @@
 #include "ui_history_item.h"
 #include "ui_tray_window.h"
 
-#include "tools.h"
-
 #include <QSortFilterProxyModel>
 #include <QRegularExpression>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <optional>
 #include <print>
 
 #include <QStyledItemDelegate>
 #include <QTextDocument>
 #include <QPainter>
+#include <string>
 
-class HtmlDelegate : public QStyledItemDelegate {
+class HtmlDelegate : public QStyledItemDelegate
+{
 public:
     HtmlDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
 
-    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
         QString text = index.data(Qt::DisplayRole).toString();
         QTextDocument doc;
         doc.setHtml(text);
@@ -48,7 +50,8 @@ public:
         painter->restore();
     }
 
-    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
         QString text = index.data(Qt::DisplayRole).toString();
         
         QTextDocument doc;
@@ -65,39 +68,64 @@ public:
 
 Q_DECLARE_METATYPE(const ai::database::entry*)
 
-auto plain_format(const std::string &response) {
-    return std::format("<html>"
-                       "<body>"
-                       "<p style='font-size:11px; color: black;'>{}</p>"
-                       "</body>"
-                       "</html>",
-                       response);
-};
+auto title(std::string_view data)
+{
+    return data | std::views::chunk_by([](auto a, auto b) { return !std::isspace(a) && !std::isspace(b); }) |
+            std::views::transform([](auto &&word) {
+                auto res = word | std::ranges::to<std::string>();
+                res[0] = std::toupper(res[0]);
+                return res;
+            }) |
+            std::views::join | std::ranges::to<std::string>();
+}
+
+std::string to_html(const std::string &response)
+{
+    try {
+        auto j = nlohmann::json::parse(response);
+
+        std::ostringstream ss;
+        ss << "<html><body>";
+        for (const auto &item : j.items()) {
+            ss << "<p style='font-weight: bold; font-size: 12px; color: black;'>" << title(item.key()) << ":</p>";
+            if (item.value().is_string())
+                ss << "<p style='font-size:11px; color: black;'>" << item.value().get<std::string>() << "</p>";
+            else if (item.value().is_array())
+            {
+                ss << "<ul>";
+                for (const auto &sub_item : item.value())
+                    ss << "<li>" << sub_item.get<std::string>() << "</li>";
+                ss << "</ul>";
+            }
+        }
+        ss << "</body></html>";
+
+        return std::move(ss).str();
+    } catch (const std::exception &) {
+        return std::format("<html>"
+                            "<body>"
+                            "<p style='font-size:11px; color: black;'>{}</p>"
+                            "</body>"
+                            "</html>",
+                            response);
+    }
+}
 
 history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
     QWidget(parent, Qt::Window | Qt::WindowStaysOnTopHint),
     M_ui(new Ui::HistoryItem)
 {
     M_ui->setupUi(this);
-    // connect(M_ui->Messages->horizontalHeader(), &QHeaderView::sectionResized, [this]() {
-    //     M_ui->Messages->resizeColumnsToContents();
-    // });
     M_ui->Messages->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     M_ui->Messages->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     M_ui->AssistantLabel->setText(QString::fromStdString(entry.assistant));
     M_ui->DateLabel->setText(QString::fromStdString(entry.model));
-    M_ui->Messages->setItemDelegateForColumn(1, new HtmlDelegate(this));
-    for (const auto &message : entry.messages) {
-
-        QString response_string;
-        if (entry.assistant == "Reworder")
-            response_string = QString::fromStdString(ai::reworder::format(message.response));
-        else
-            response_string = QString::fromStdString(plain_format(message.response));
-
+    M_ui->Messages->setItemDelegate(new HtmlDelegate(this));
+    for (const auto &message : entry.messages)
+    {
         M_ui->Messages->insertRow(M_ui->Messages->rowCount());
-        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, new QTableWidgetItem(QString::fromStdString(message.input)));
-        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, new QTableWidgetItem(response_string));
+        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, new QTableWidgetItem(QString::fromStdString(to_html(message.input))));
+        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, new QTableWidgetItem(QString::fromStdString(to_html(message.response))));
     }
 
     M_ui->Messages->resizeColumnsToContents();
@@ -184,16 +212,12 @@ tray_window::tray_window(ai::database &db, QWidget *parent) :
             if (checked)
             {
                 proxy->setFilterKeyColumn(column);
-                std::print("filtering with {}\n", column);
                 if (M_ui->DateButton != button) M_ui->DateButton->setChecked(false);
                 if (M_ui->ContentButton != button) M_ui->ContentButton->setChecked(false);
                 if (M_ui->KeybindFilterButton != button) M_ui->KeybindFilterButton->setChecked(false);
             }
             else
-            {
                 proxy->setFilterKeyColumn(-1);
-                std::print("filtering with all\n");
-            }
         });
     };
 
@@ -219,12 +243,27 @@ tray_window::~tray_window() = default;
 
 void tray_window::update_history()
 {
+    auto extract = [](std::string_view input) {
+        try
+        {
+            auto json = nlohmann::json::parse(input);
+            if (json.contains("Selected") && json["Selected"].is_string())
+                return json["Selected"].get<std::string>();
+            else
+                throw 0;
+        }
+        catch (...)
+        {
+            return std::string(input);
+        }
+    };
+    
     M_model->removeRows(0, M_model->rowCount());
     for (const auto &conversation : M_db->get_entries()) {
         auto date = new QStandardItem(QString::fromStdString(conversation.date()));
 
         auto content = new QStandardItem();
-        content->setData(QString::fromStdString(conversation.messages[0].input), Qt::DisplayRole); // Display text
+        content->setData(QString::fromStdString(extract(conversation.messages[0].input)), Qt::DisplayRole); // Display text
 
         QJsonObject json;
         json["assistant"] = QString::fromStdString(conversation.assistant);
