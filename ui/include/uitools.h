@@ -30,6 +30,7 @@ public:
     ~prompt_window();
 
 protected:
+    void set_inclusions(const QString &text);
     void resizeEvent(QResizeEvent *event) override;
 private:
     context M_context;
@@ -38,6 +39,38 @@ private:
     std::unique_ptr<Ui::PromptEntry> ui;
     ai_handler *M_ai;
     window_handler *M_handler;
+
+    bool M_selected_disabled = false;
+    bool M_focused_disabled = false;
+    bool M_screen_disabled = false;
+
+    struct options
+    {
+        enum class priority { optional, required, disabled };
+        priority selected = priority::optional;
+        priority focused = priority::optional;
+        priority screen = priority::optional;
+
+        void enforce(prompt_window *window) const;
+    };
+
+    static constexpr options reword_options = {
+        .selected = options::priority::required,
+        .focused = options::priority::optional,
+        .screen = options::priority::optional
+    };
+
+    static constexpr options create_options = {
+        .selected = options::priority::optional,
+        .focused = options::priority::optional,
+        .screen = options::priority::optional
+    };
+
+    static constexpr options ask_options = {
+        .selected = options::priority::optional,
+        .focused = options::priority::optional,
+        .screen = options::priority::optional
+    };
 };
 
 class ui_tool : public QWidget

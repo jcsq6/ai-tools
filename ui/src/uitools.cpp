@@ -5,10 +5,7 @@
 
 #include "system.h"
 
-#include <QtCore/qnamespace.h>
-#include <QtCore/qsize.h>
-#include <QtWidgets/qsizepolicy.h>
-#include <QtWidgets/qwidget.h>
+#include <QRadioButton>
 #include <QMessageBox>
 
 #include <string_view>
@@ -31,6 +28,7 @@ prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&
     auto dpr = this->devicePixelRatioF();
     if (M_context.window.empty())
     {
+        M_focused_disabled = true;
         M_window_image = not_found;
         M_window_image.setDevicePixelRatio(dpr);
     }
@@ -43,6 +41,7 @@ prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&
     
     if (M_context.screen.empty())
     {
+        M_screen_disabled = true;
         M_screen_image = not_found;
         M_screen_image.setDevicePixelRatio(dpr);
     }
@@ -53,10 +52,17 @@ prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&
         M_screen_image = QPixmap::fromImage(in);
     }
 
+    ui->IncludeSelected->setChecked(!M_context.selected_text.empty());
+    ui->IncludeFocused->setChecked(!M_context.window.empty());
+    ui->IncludeScreen->setChecked(!M_context.screen.empty());
+
     ui->WindowScroll->setWidgetResizable(true);
     ui->ScreenScroll->setWidgetResizable(true);
     show();
     resizeEvent(nullptr);
+
+    connect(ui->ToolSelector, &QComboBox::currentTextChanged, this, &prompt_window::set_inclusions);
+    set_inclusions(ui->ToolSelector->currentText());
 
     connect(ui->Send, &QToolButton::clicked, this, [this]() {
         auto selected = ui->SelectedText->toPlainText();
@@ -71,6 +77,11 @@ prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&
                 return;
 
             M_context.selected_text = selected.toStdString();
+
+            if (!ui->IncludeFocused->isChecked())
+                window.clear();
+            if (!ui->IncludeScreen->isChecked())
+                screen.clear();
 
             auto res = M_handler->create<reword_window>(*M_ai, *M_handler, std::move(M_context), prompt.toStdString());
             res->setAttribute(Qt::WA_DeleteOnClose);
@@ -92,6 +103,52 @@ prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&
         
         close();
     });
+
+    connect(ui->SelectedText, &QTextEdit::textChanged, [this]() {
+        set_inclusions(ui->ToolSelector->currentText());
+    });
+}
+
+void prompt_window::options::enforce(prompt_window *window) const
+{
+    auto set = [=](priority p, QRadioButton *button, bool invalid) {
+        switch (p)
+        {
+        case priority::optional:
+            button->setEnabled(!invalid);
+            break;
+        case priority::required:
+            if (invalid)
+                window->ui->Send->setEnabled(false);
+            else
+            {
+                button->setChecked(true);
+                button->setEnabled(false);
+            }
+
+            break;
+        case priority::disabled:
+            button->setChecked(false);
+            button->setEnabled(false);
+            break;
+        }
+    };
+
+    window->ui->Send->setEnabled(true);
+
+    set(focused, window->ui->IncludeFocused, window->M_focused_disabled);
+    set(selected, window->ui->IncludeSelected, window->ui->SelectedText->toPlainText().isEmpty() || window->M_selected_disabled);
+    set(screen, window->ui->IncludeScreen, window->M_screen_disabled);
+}
+
+void prompt_window::set_inclusions(const QString &text)
+{
+    if (text == "Reword")
+        reword_options.enforce(this);
+    else if (text == "Create")
+        create_options.enforce(this);
+    else if (text == "Ask")
+        ask_options.enforce(this);
 }
 
 void prompt_window::resizeEvent(QResizeEvent *event)

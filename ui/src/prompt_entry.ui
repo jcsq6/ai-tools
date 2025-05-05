@@ -81,10 +81,17 @@ color: rgb(86, 87, 89);
         <property name="frameShape">
          <enum>QFrame::Shape::StyledPanel</enum>
         </property>
-        <layout class="QHBoxLayout" name="SelectedLayout" stretch="0,1">
+        <layout class="QHBoxLayout" name="SelectedLayout" stretch="0,0,1">
          <property name="spacing">
           <number>-1</number>
          </property>
+         <item>
+          <widget class="QRadioButton" name="IncludeSelected">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
          <item>
           <widget class="QLabel" name="label">
            <property name="minimumSize">
@@ -144,7 +151,14 @@ border-radius: 8px;</string>
         <property name="frameShape">
          <enum>QFrame::Shape::StyledPanel</enum>
         </property>
-        <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,1">
+        <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,0,1">
+         <item>
+          <widget class="QRadioButton" name="IncludeFocused">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
          <item>
           <widget class="QLabel" name="label_2">
            <property name="minimumSize">
@@ -184,7 +198,7 @@ border-radius: 8px;</string>
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>245</width>
+              <width>214</width>
               <height>58</height>
              </rect>
             </property>
@@ -259,7 +273,14 @@ border-radius: 8px;</string>
         <property name="frameShadow">
          <enum>QFrame::Shadow::Raised</enum>
         </property>
-        <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0">
+        <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,0">
+         <item>
+          <widget class="QRadioButton" name="IncludeScreen">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
          <item>
           <widget class="QLabel" name="label_3">
            <property name="minimumSize">
@@ -299,7 +320,7 @@ border-radius: 8px;</string>
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>245</width>
+              <width>214</width>
               <height>58</height>
              </rect>
             </property>

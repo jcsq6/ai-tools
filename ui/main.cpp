@@ -1,13 +1,11 @@
 #include <QApplication>
+#include <entry.h>
 
-#include <thread>
-#include <chrono>
 #include <print>
 
+#include "ai_handler.h"
 #include "window_handler.h"
 #include "hotkey_handler.h"
-
-#include <entry.h>
 
 int app::run(int argc, char **argv)
 {
