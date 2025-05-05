@@ -8,6 +8,8 @@
 #include <QRadioButton>
 #include <QMessageBox>
 
+#include <QtWidgets/qlineedit.h>
+#include <QtWidgets/qtextedit.h>
 #include <string_view>
 
 prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&ctx) :
@@ -64,6 +66,7 @@ prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&
     connect(ui->ToolSelector, &QComboBox::currentTextChanged, this, &prompt_window::set_inclusions);
     set_inclusions(ui->ToolSelector->currentText());
 
+    connect(ui->PromptEdit, &QLineEdit::returnPressed, ui->Send, &QToolButton::click);
     connect(ui->Send, &QToolButton::clicked, this, [this]() {
         auto selected = ui->SelectedText->toPlainText();
         auto &window = M_context.window;
@@ -188,6 +191,7 @@ reword_window::reword_window(ai_handler &ai, window_handler &handler, context &&
     ui->setupUi(this);
     ui->PromptEdit->setText(QString::fromUtf8(prompt.data()));
 
+    connect(ui->PromptEdit, &QLineEdit::returnPressed, ui->Send, &QToolButton::click);
     connect(ui->Send, &QToolButton::clicked, [this] { send(); } );
     connect(ui->Accept, &QToolButton::clicked, [this] {
         auto revised = ui->RevisionText->toPlainText().toStdString();
@@ -230,7 +234,7 @@ reword_window::reword_window(ai_handler &ai, window_handler &handler, context &&
 
 void reword_window::send(std::string_view selected)
 {
-    if (auto res = M_ai->reworder().send(M_thread, selected, ui->PromptEdit->toPlainText().toStdString(), M_context.window, M_stream_handler); !res)
+    if (auto res = M_ai->reworder().send(M_thread, selected, ui->PromptEdit->text().toStdString(), M_context.window, M_stream_handler); !res)
     {
         std::print(std::cerr, "Failed to send request: {}\n", res.error());
         return;

@@ -99,6 +99,12 @@ signals:
     void finished();
 
 protected:
+    void closeEvent(QCloseEvent *event) override
+    {
+        finish();
+        QWidget::closeEvent(event);
+    }
+
     ai_handler *M_ai;
     ai::thread M_thread;
     context M_context;

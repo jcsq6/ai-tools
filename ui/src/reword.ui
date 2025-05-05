@@ -36,7 +36,7 @@
 color: rgb(86, 87, 89);
 </string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="3,3,1,0">
    <property name="spacing">
     <number>-1</number>
    </property>
@@ -53,7 +53,7 @@ color: rgb(86, 87, 89);
     <number>12</number>
    </property>
    <item>
-    <layout class="QVBoxLayout" name="RevisionLayout" stretch="1,2">
+    <layout class="QVBoxLayout" name="RevisionLayout" stretch="1,4">
      <property name="spacing">
       <number>0</number>
      </property>
@@ -102,7 +102,7 @@ border-radius: 8px;</string>
     </layout>
    </item>
    <item>
-    <layout class="QVBoxLayout" name="ExplanationLayout" stretch="1,2">
+    <layout class="QVBoxLayout" name="ExplanationLayout" stretch="1,4">
      <property name="spacing">
       <number>0</number>
      </property>
@@ -151,7 +151,7 @@ border-radius: 8px;</string>
     </layout>
    </item>
    <item>
-    <layout class="QVBoxLayout" name="PromptLayout" stretch="1,2">
+    <layout class="QVBoxLayout" name="PromptLayout" stretch="1,4">
      <property name="spacing">
       <number>0</number>
      </property>
@@ -163,37 +163,19 @@ border-radius: 8px;</string>
       </widget>
      </item>
      <item>
-      <widget class="QTextEdit" name="PromptEdit">
+      <widget class="QLineEdit" name="PromptEdit">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>45</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>16777215</height>
-        </size>
-       </property>
        <property name="styleSheet">
         <string notr="true">border: 1px solid rgb(180, 179, 178);
 border-radius: 8px;</string>
        </property>
-       <property name="sizeAdjustPolicy">
-        <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
-       </property>
-       <property name="readOnly">
-        <bool>false</bool>
-       </property>
        <property name="placeholderText">
-        <string>e.g. Make it concise and professional</string>
+        <string>e.g. Make it concise and professional.</string>
        </property>
       </widget>
      </item>
