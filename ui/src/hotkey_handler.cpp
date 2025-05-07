@@ -1,7 +1,6 @@
 #include "hotkey_handler.h"
 #include "uitools.h"
 
-#include <__expected/expected.h>
 #include <fstream>
 #include <print>
 #include <iostream>

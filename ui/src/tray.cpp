@@ -9,7 +9,6 @@
 #include <QRegularExpression>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <optional>
 #include <print>
 
 #include <QStyledItemDelegate>
