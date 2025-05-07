@@ -42,27 +42,6 @@ handle::handle()
     throw std::runtime_error("No OpenAI API key found.");
 }
 
-handle::~handle()
-{
-}
-
-assistant::assistant(handle &_client,
-                     std::string_view name,
-                     std::string_view instructions,
-                     std::string_view model,
-                     const nlohmann::json &response_format)
-    : M_client(&_client), M_name(name), M_instructions(instructions), M_model(model), M_response_format(response_format)
-{
-    std::print("Initializing assistant {} with model {}...\n", name, model);
-
-    M_request["stream"] = true;
-    M_request["model"] = model;
-    M_request["instructions"] = instructions;
-    if (!response_format.empty())
-        M_request["text"] = response_format;
-    M_request["previous_response_id"] = nullptr;
-}
-
 std::string_view trimmed(std::string_view str)
 {
     constexpr std::string_view whitespace = " \t\n\r\f\v";
@@ -212,9 +191,9 @@ size_t thread::sse_write(void *contents, size_t size, size_t nmemb, void *userp)
 
 void thread::send(nlohmann::json input, std::shared_ptr<stream_handler> res)
 {
-    if (!input.is_array())
+    if (!input.is_array() && !input.is_string())
     {
-        std::print(std::cerr, "Input must be an array.\n");
+        std::print(std::cerr, "Input must be an array or string.\n");
         return;
     }
 
@@ -283,14 +262,18 @@ void thread::send(nlohmann::json input, std::shared_ptr<stream_handler> res)
                     throw std::runtime_error(std::format("Request failed with code {}: {}", res->M_stream.err, res->M_stream.err_msg));
             }
             
-            auto text_input = [&input]() {
+            auto text_input = [&request]() {
+                auto &input = request["input"];
+                if (input.is_string())
+                    return input.get<std::string>();
+
                 for (const auto &item : input)
                     if (item.contains("content"))
-                        for (const auto &content : item["content"])
-                        {
-                            if (content.contains("text"))
-                                return content["text"].get<std::string>();
-                        }
+                        return item["content"] | std::views::filter([](auto &&content) { return content.contains("text"); }) |
+                                                 std::views::transform([](auto &&content) { return std::format("\n{}", content["text"].template get<std::string>()); }) |
+                                                 std::views::join | 
+                                                 std::views::drop(1) | 
+                                                 std::ranges::to<std::string>();
 
                 return std::string{};
             }();

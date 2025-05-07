@@ -2,6 +2,7 @@
 #include "database.h"
 #include <print>
 #include <iostream>
+#include <ranges>
 
 void text_test(ai::handle &client)
 {
@@ -27,6 +28,7 @@ void json_test(ai::handle &client)
         "test",
         "You have no purpose outside of API endpoint testing",
         "gpt-4o-mini",
+        {},
         {{"format", {
             {"type", "json_schema"},
             {"name", "test"},
@@ -57,13 +59,49 @@ void json_test(ai::handle &client)
     db.append(thread);
 }
 
+template <std::ranges::range R>
+void conversation(ai::handle &client, R &&tools)
+{
+    auto res = ai::text_stream_handler::make({
+        .delta = [](std::string_view accum, std::string_view delta) { std::print("{}", delta); std::cout.flush(); },
+        .finish = [](std::string_view accum) { std::print("\n"); }
+    });
+    ai::assistant assistant(client,
+        "test",
+        "You have no purpose outside of API endpoint testing",
+        "gpt-4o-mini",
+        tools | std::ranges::to<std::vector<std::string>>());
+    
+    std::print("Tools: {}\n", tools);
+    ai::thread thread(assistant);
+    // thread.send("Testing!", res);
+    while (true)
+    {
+        std::print("> ");
+        std::string input;
+        std::getline(std::cin, input);
+        if (input.empty())
+            break;
+
+        std::print("Response:\n");
+        thread.send(input, res);
+        thread.join();
+    }
+
+    ai::database db("database", false);
+    db.append(thread);
+}
+
 int main(int argc, char *argv[])
 {
     try
     {
+        auto args = std::ranges::subrange(argv + 1, argv + argc) | std::views::transform([](auto &&arg) { return std::string_view(arg); });
         ai::handle client;
-        if (argc > 1 && std::string_view(argv[1]) == "json")
+        if (std::ranges::contains(args, "--json"))
             json_test(client);
+        else if (std::ranges::contains(args, "--conversation"))
+            conversation(client, args | std::views::filter([](auto &&arg) { return arg != "--conversation"; }));
         else
             text_test(client);
 

@@ -13,6 +13,8 @@
 #include <optional>
 #include <string_view>
 
+#include <iostream>
+
 prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&ctx) :
     QWidget(),
     M_context(std::move(ctx)),

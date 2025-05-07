@@ -3,7 +3,6 @@
 #define AI_BEG namespace ai {
 #define AI_END }
 
-#include <iostream>
 #include <print>
 
 #include <string>
@@ -19,7 +18,6 @@ class handle
 {
 public:
     handle();
-    ~handle();
 
     auto &key() const { return M_key; }
 private:
@@ -33,7 +31,21 @@ public:
               std::string_view name,
               std::string_view instructions,
               std::string_view model,
-              const nlohmann::json &response_format = {});
+              std::vector<std::string> tools = {},
+              const nlohmann::json &response_format = {})
+              : M_client(&_client), M_name(name), M_instructions(instructions), M_model(model), M_response_format(response_format), M_tools(std::move(tools))
+    {
+        std::print("Initializing assistant {} with model {}...\n", name, model);
+
+        M_request["stream"] = true;
+        M_request["model"] = model;
+        M_request["instructions"] = instructions;
+        if (!response_format.empty())
+            M_request["text"] = response_format;
+        M_request["previous_response_id"] = nullptr;
+        for (auto &tool : M_tools)
+            M_request["tools"].push_back({{"type", tool}});
+    }
 
     auto &client() const { return *M_client; }
     auto &name() const { return M_name; }
@@ -48,6 +60,7 @@ private:
     std::string M_model;
     nlohmann::json M_response_format;
     nlohmann::json M_request;
+    std::vector<std::string> M_tools;
 
     friend class thread;
 };
@@ -169,7 +182,7 @@ class text_stream_handler : public stream_handler
 {
     struct secret {};
 public:
-    using delta_fun_t = std::function<void(std::string_view accum, std::string_view)>;
+    using delta_fun_t = std::function<void(std::string_view accum, std::string_view delta)>;
     using finish_fun_t = std::function<void(std::string_view)>;
     using constructor_arg_t = delta_funs<delta_fun_t, finish_fun_t>;
 
