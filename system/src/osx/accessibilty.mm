@@ -501,7 +501,15 @@ result<std::string> handle::get_name()
 
 result<std::vector<std::byte>> capture_screen()
 {
-    return std::unexpected("Capture screen not implemented");
+    NSScreen *screen = [NSScreen mainScreen];
+    if (!screen)
+        return std::unexpected("No main screen found");
+    
+    CGRect screenRect = [screen frame];
+    auto image = Manager::get_instance().screenshot(screenRect);
+    if (!image)
+        return std::unexpected(std::format("Failed to capture image ({})", image.error()));
+    return Manager::get_instance().to_jpg(*image);
 }
 
 result<void> copy(std::string_view text)
@@ -514,7 +522,7 @@ result<void> paste(std::string_view text)
     return Manager::get_instance().paste(text);
 }
 
-window::window() : M_handle(std::make_unique<handle>()) 
+window::window() : M_handle() 
 {
 }
 
@@ -528,6 +536,7 @@ window::~window() = default;
 result<window> window::get_focused()
 {
     auto win = window();
+    win.M_handle = std::make_unique<handle>();
     if (auto err = win.M_handle->get_focused_app(); !err)
     {
         std::println(std::cerr, "Error getting focused app: {}", err.error());
