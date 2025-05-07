@@ -1,5 +1,8 @@
 #pragma once
 
+#include <concepts>
+#include <ranges>
+#include <utility>
 #define AI_BEG namespace ai {
 #define AI_END }
 
@@ -27,13 +30,14 @@ private:
 class assistant
 {
 public:
+    template <std::ranges::range R = std::ranges::empty_view<std::string>> requires(std::convertible_to<std::ranges::range_value_t<R>, std::string_view>)
     assistant(handle &_client,
               std::string_view name,
               std::string_view instructions,
               std::string_view model,
-              std::vector<std::string> tools = {},
+              R &&tools = {},
               const nlohmann::json &response_format = {})
-              : M_client(&_client), M_name(name), M_instructions(instructions), M_model(model), M_response_format(response_format), M_tools(std::move(tools))
+              : M_client(&_client), M_name(name), M_instructions(instructions), M_model(model), M_response_format(response_format), M_tools(tools | std::ranges::to<std::vector<std::string>>())
     {
         std::print("Initializing assistant {} with model {}...\n", name, model);
 

@@ -2,6 +2,7 @@
 #include "ai.h"
 #include <concepts>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <expected>
 #include <optional>
@@ -53,6 +54,7 @@ public:
             Self::name(),
             Self::instructions(),
             Self::model(),
+            Self::tools(),
             make_format<Self>()
         )
     {
@@ -90,6 +92,7 @@ public:
     static inline std::string_view instructions() { return M_instructions; }
     static constexpr std::string_view model() { return "gpt-4.1"; }
     static const nlohmann::json &schema() { return M_schema; }
+    static constexpr auto tools() { return std::views::empty<std::string>; }
 
     std::expected<void, std::string> send(thread &th, input &&in, std::shared_ptr<stream_handler> res) override;
     
@@ -107,6 +110,7 @@ public:
     static inline std::string_view instructions() { return M_instructions; }
     static constexpr std::string_view model() { return "gpt-4.1"; }
     static const nlohmann::json &schema() { return M_schema; }
+    static constexpr auto tools() { return std::views::single(std::string_view("web_search_preview")); }
 
     std::expected<void, std::string> send(thread &th, input &&in, std::shared_ptr<stream_handler> res) override;
 
