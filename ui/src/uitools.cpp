@@ -117,18 +117,16 @@ void prompt_window::options::enforce(prompt_window *window) const
     auto set = [=](priority p, QRadioButton *button, bool invalid) {
         switch (p)
         {
+        case priority::optional_preferred:
         case priority::optional:
             button->setEnabled(!invalid);
             break;
         case priority::required:
             if (invalid)
                 window->ui->Send->setEnabled(false);
-            else
-            {
-                button->setChecked(true);
-                button->setEnabled(false);
-            }
 
+            button->setChecked(true);
+            button->setEnabled(false);
             break;
         case priority::disabled:
             button->setChecked(false);
@@ -144,14 +142,46 @@ void prompt_window::options::enforce(prompt_window *window) const
     set(screen, window->ui->IncludeScreen, window->M_screen_disabled);
 }
 
+void prompt_window::options::enforce_preferred(prompt_window *window) const
+{
+    auto set = [=](priority p, QRadioButton *button, bool invalid) {
+        switch (p)
+        {
+        case priority::optional_preferred:
+            return button->setChecked(!invalid);
+        case priority::optional:
+            return button->setChecked(false);
+        case priority::required:
+            return button->setChecked(true);
+        case priority::disabled:
+            return button->setChecked(false);
+        }
+    };
+
+    window->ui->Send->setEnabled(true);
+
+    set(focused, window->ui->IncludeFocused, window->M_focused_disabled);
+    set(selected, window->ui->IncludeSelected, window->ui->SelectedText->toPlainText().isEmpty() || window->M_selected_disabled);
+    set(screen, window->ui->IncludeScreen, window->M_screen_disabled);
+}
+
 void prompt_window::set_inclusions(const QString &text)
 {
     if (text == "Reword")
+    {
+        reword_options.enforce_preferred(this);
         reword_options.enforce(this);
+    }
     else if (text == "Create")
+    {
+        create_options.enforce_preferred(this);
         create_options.enforce(this);
+    }
     else if (text == "Ask")
+    {
+        ask_options.enforce_preferred(this);
         ask_options.enforce(this);
+    }
 }
 
 void prompt_window::resizeEvent(QResizeEvent *event)

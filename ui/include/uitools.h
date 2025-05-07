@@ -46,30 +46,32 @@ private:
 
     struct options
     {
-        enum class priority { optional, required, disabled };
+        // optional will start out as unchecked 
+        enum class priority { optional, optional_preferred, required, disabled };
         priority selected = priority::optional;
         priority focused = priority::optional;
         priority screen = priority::optional;
 
         void enforce(prompt_window *window) const;
+        void enforce_preferred(prompt_window *window) const;
     };
 
     static constexpr options reword_options = {
         .selected = options::priority::required,
-        .focused = options::priority::optional,
+        .focused = options::priority::optional_preferred,
         .screen = options::priority::optional
     };
 
     static constexpr options create_options = {
         .selected = options::priority::optional,
-        .focused = options::priority::optional,
+        .focused = options::priority::optional_preferred,
         .screen = options::priority::optional
     };
 
     static constexpr options ask_options = {
         .selected = options::priority::optional,
         .focused = options::priority::optional,
-        .screen = options::priority::optional
+        .screen = options::priority::optional_preferred
     };
 };
 
