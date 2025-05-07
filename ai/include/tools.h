@@ -6,6 +6,7 @@
 #include <span>
 #include <expected>
 #include <optional>
+#include <type_traits>
 
 AI_BEG
 
@@ -44,79 +45,105 @@ struct input
     std::optional<images_struct> images;
 };
 
-class tool
+namespace detail
 {
-public:
-    template <std::derived_from<tool> Self>
-    tool(Self &self, handle &client) :
-        M_assistant(
-            client,
-            Self::name(),
-            Self::instructions(),
-            Self::model(),
-            Self::tools(),
-            make_format<Self>()
-        )
-    {
-    }
+    template <typename T>
+    concept has_schema = requires { T::schema(); };
+}
 
+class tool
+{    
+public:
     thread start_thread() 
     {
         return thread(M_assistant);
     }
 
-    virtual std::expected<void, std::string> send(thread &th, input &&in, std::shared_ptr<stream_handler> res) = 0;
+    template <typename Self> requires(std::derived_from<std::remove_cvref_t<Self>, tool>)
+    std::expected<void, std::string> send(this Self &&self, thread &th, input &&in, std::shared_ptr<stream_handler> res)
+    {
+        if (&th.get_assistant() != &self.M_assistant)
+            return std::unexpected("Thread does not belong to this assistant.");
+
+        return self.send_impl(th, std::move(in), std::move(res));
+    }
 
 protected:
     assistant M_assistant;
 
-    template <typename Self>
-    static auto make_format()
+    template <typename Self> requires(std::derived_from<std::remove_cvref_t<Self>, tool>)
+    auto make_format(this Self &&self)
     {
-        return nlohmann::json{
-            {"format", {
-                {"type", "json_schema"},
-                {"name", Self::name()},
-                {"schema", Self::schema()}
-            }}
-        };
+        if constexpr (detail::has_schema<Self>)
+        {
+            return nlohmann::json{
+                {"format", {
+                    {"type", "json_schema"},
+                    {"name", Self::name()},
+                    {"schema", Self::schema()}
+                }}
+            };
+        }
+        else
+            return nlohmann::json{};
+    }
+
+    template <typename Self> requires(std::derived_from<std::remove_cvref_t<Self>, tool>)
+    void init(this Self &self, handle &client)
+    {
+        self.M_assistant = assistant(
+            client,
+            self.name(),
+            self.instructions(),
+            self.model(),
+            self.tools(),
+            self.make_format()
+        );
     }
 };
 
 class reworder : public tool
 {
 public:
-    reworder(handle &client) : tool(*this, client) {}
+    reworder(handle &client)
+    {
+        init(client);
+    }
 
     static constexpr std::string_view name() { return "Reworder"; }
     static inline std::string_view instructions() { return M_instructions; }
     static constexpr std::string_view model() { return "gpt-4.1"; }
     static const nlohmann::json &schema() { return M_schema; }
     static constexpr auto tools() { return std::views::empty<std::string>; }
-
-    std::expected<void, std::string> send(thread &th, input &&in, std::shared_ptr<stream_handler> res) override;
     
 private:
     static nlohmann::json M_schema;
     static std::string_view M_instructions;
+
+    friend tool;
+
+    std::expected<void, std::string> send_impl(thread &th, input &&in, std::shared_ptr<stream_handler> res);
 };
 
 class ask : public tool
 {
 public:
-    ask(handle &client) : tool(*this, client) {}
+    ask(handle &client)
+    {
+        init(client);
+    }
 
     static constexpr std::string_view name() { return "Ask"; }
     static inline std::string_view instructions() { return M_instructions; }
     static constexpr std::string_view model() { return "gpt-4.1"; }
-    static const nlohmann::json &schema() { return M_schema; }
     static constexpr auto tools() { return std::views::single(std::string_view("web_search_preview")); }
 
-    std::expected<void, std::string> send(thread &th, input &&in, std::shared_ptr<stream_handler> res) override;
-
 private:
-    static nlohmann::json M_schema;
     static std::string_view M_instructions;
+
+    friend tool;
+
+    std::expected<void, std::string> send_impl(thread &th, input &&in, std::shared_ptr<stream_handler> res);
 };
 
 AI_END

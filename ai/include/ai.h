@@ -30,6 +30,8 @@ private:
 class assistant
 {
 public:
+    assistant() : M_client{} {}
+    
     template <std::ranges::range R = std::ranges::empty_view<std::string>> requires(std::convertible_to<std::ranges::range_value_t<R>, std::string_view>)
     assistant(handle &_client,
               std::string_view name,
