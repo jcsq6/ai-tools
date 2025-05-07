@@ -283,6 +283,8 @@ void tray_window::update_history()
 
         M_model->appendRow({ date, content });
     }
+
+    M_model->sort(0, Qt::DescendingOrder);
 }
 
 void tray_window::on_conversation_double_clicked(const QModelIndex &index)
