@@ -12,7 +12,7 @@
 
 AI_BEG
 
-handle::handle()
+handle::handle(handle::secret)
 {    
     if (auto var = std::getenv("OPENAI_API_KEY"))
     {
@@ -52,7 +52,7 @@ std::string_view trimmed(std::string_view str)
     return str;
 }
 
-void raw_stream::parse(std::string_view delta_str)
+void detail::raw_stream::parse(std::string_view delta_str)
 {
     if (delta_str.empty())
         return;
@@ -177,11 +177,6 @@ void raw_stream::parse(std::string_view delta_str)
     }
 }
 
-thread::thread(assistant &assistant) : M_assistant(&assistant)
-{
-    std::print("Initializing thread for assistant {}...\n", M_assistant->name());
-}
-
 size_t thread::sse_write(void *contents, size_t size, size_t nmemb, void *userp)
 {
     const auto total_size = size * nmemb;
@@ -189,7 +184,7 @@ size_t thread::sse_write(void *contents, size_t size, size_t nmemb, void *userp)
     return total_size;
 }
 
-void thread::send(nlohmann::json input, std::shared_ptr<stream_handler> res)
+void thread::send(nlohmann::json input, stream_handler &output)
 {
     if (!input.is_array() && !input.is_string())
     {
@@ -200,21 +195,24 @@ void thread::send(nlohmann::json input, std::shared_ptr<stream_handler> res)
     if (M_thread.joinable())
         join();
 
-    auto runner = [this, input = std::move(input), res = std::move(res)]()
+    auto handle = get_ptr();
+
+    auto runner = [input = std::move(input), &output, handle = std::move(handle)]()
     {
-        res->reset();
+        auto res = output.get_ptr();
+        res->clear();
         try
         {
-            auto &request = M_assistant->M_request;
+            auto &request = handle->M_assistant->M_request;
             request["input"] = std::move(input);
-            if (!M_messages.empty())
-                request["previous_response_id"] = M_messages.back().id;
+            if (!handle->M_messages.empty())
+                request["previous_response_id"] = handle->M_messages.back().id;
 
             CURL *curl = curl_easy_init();
             if (!curl)
                 throw std::runtime_error("Failed to initialize libcurl.\n");
 
-            std::string_view key = M_assistant->client().key();
+            std::string_view key = handle->M_assistant->client().key();
             constexpr std::string_view url = "https://api.openai.com/v1/responses";
             std::string body = request.dump();
 
@@ -278,10 +276,10 @@ void thread::send(nlohmann::json input, std::shared_ptr<stream_handler> res)
                 return std::string{};
             }();
 
-            M_messages.push_back({.id = res->M_stream.response_id, .input = text_input, .response = res->M_stream.accum, .created_at = res->M_stream.created_at});
+            handle->M_messages.push_back({.id = res->M_stream.response_id, .input = text_input, .response = res->M_stream.accum, .created_at = res->M_stream.created_at});
         } catch (...)
         {
-            M_exception = std::current_exception();
+            handle->M_exception = std::current_exception();
         }
     };
 

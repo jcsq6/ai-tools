@@ -1,4 +1,5 @@
 #pragma once
+#include "ai.h"
 #include "database.h"
 #include "tools.h"
 
@@ -8,8 +9,8 @@ public:
     static constexpr std::string_view database_dir = "database";
     ai_handler() :
         M_db(database_dir),
-        M_handle(),
-        M_reworder(M_handle)
+        M_handle(ai::handle::make()),
+        M_reworder(*M_handle)
     {
     }
 
@@ -26,6 +27,6 @@ public:
 
 private:
     ai::database M_db;
-    ai::handle M_handle;
+    ai::handle::handle_t M_handle;
     ai::reworder M_reworder;
 };

@@ -1,7 +1,9 @@
 #pragma once
 
 #include <concepts>
+#include <memory>
 #include <ranges>
+#include <type_traits>
 #include <utility>
 #define AI_BEG namespace ai {
 #define AI_END }
@@ -17,32 +19,54 @@
 #include <json.hpp>
 
 AI_BEG
-class handle
+
+namespace detail
+{
+    template <typename T>
+    class enable_shared : public std::enable_shared_from_this<enable_shared<T>>
+    {
+    public:
+        using handle_t = std::shared_ptr<T>;
+
+        template <typename Self>
+        auto get_ptr(this Self &&self)
+        {
+            return std::dynamic_pointer_cast<std::remove_reference_t<Self>>(self.shared_from_this());
+        }
+
+        virtual ~enable_shared() = default;
+    protected:
+        struct secret {};
+        enable_shared() = default;
+    };
+}
+
+class handle : public detail::enable_shared<handle>
 {
 public:
-    handle();
+    handle(secret);
+    static auto make()
+    {
+        return std::make_shared<handle>(secret{});
+    }
 
     auto &key() const { return M_key; }
 private:
     std::string M_key;
 };
 
-class assistant
+class assistant : public detail::enable_shared<assistant>
 {
 public:
-    assistant() : M_client{} {}
-    
     template <std::ranges::range R = std::ranges::empty_view<std::string>> requires(std::convertible_to<std::ranges::range_value_t<R>, std::string_view>)
-    assistant(handle &_client,
+    assistant(secret, handle &client,
               std::string_view name,
               std::string_view instructions,
               std::string_view model,
               R &&tools = {},
               const nlohmann::json &response_format = {})
-              : M_client(&_client), M_name(name), M_instructions(instructions), M_model(model), M_response_format(response_format), M_tools(tools | std::ranges::to<std::vector<std::string>>())
+              : M_client(client.get_ptr()), M_name(name), M_instructions(instructions), M_model(model), M_response_format(response_format), M_tools(tools | std::ranges::to<std::vector<std::string>>())
     {
-        std::print("Initializing assistant {} with model {}...\n", name, model);
-
         M_request["stream"] = true;
         M_request["model"] = model;
         M_request["instructions"] = instructions;
@@ -53,6 +77,17 @@ public:
             M_request["tools"].push_back({{"type", tool}});
     }
 
+    template <std::ranges::range R = std::ranges::empty_view<std::string>> requires(std::convertible_to<std::ranges::range_value_t<R>, std::string_view>)
+    static auto make(handle &client,
+                     std::string_view name,
+                     std::string_view instructions,
+                     std::string_view model,
+                     R &&tools = {},
+                     const nlohmann::json &response_format = {})
+    {
+        return std::make_shared<assistant>(secret{}, client, name, instructions, model, std::forward<R>(tools), response_format);
+    }
+
     auto &client() const { return *M_client; }
     auto &name() const { return M_name; }
     auto &instructions() const { return M_instructions; }
@@ -60,7 +95,7 @@ public:
     auto &response_format() const { return M_response_format; }
 
 private:
-    handle *M_client;
+    handle::handle_t M_client;
     std::string M_name;
     std::string M_instructions;
     std::string M_model;
@@ -71,48 +106,50 @@ private:
     friend class thread;
 };
 
-class raw_stream
+namespace detail
+{
+    class raw_stream
+    {
+    public:
+        // delta: void(accum, delta)
+        // finish: void(accum)
+        raw_stream()
+        {
+            M_blocks.reserve(8);
+        }
+
+        void clear()
+        {
+            accum.clear();
+            buffer.clear();
+            response_id.clear();
+            message_id.clear();
+            err.clear();
+            err_msg.clear();
+            M_blocks.clear();
+            finished = false;
+        }
+
+        std::function<void(std::string_view, std::string_view)> delta;
+        std::function<void(std::string_view)> finish;
+        std::string accum;
+        std::string buffer;
+        std::string response_id;
+        std::string message_id;
+        std::string err;
+        std::string err_msg;
+        std::time_t created_at = 0;
+        bool finished = false;
+
+        void parse(std::string_view delta_str);
+    private:
+        std::vector<std::string_view> M_blocks; // optimization
+    };
+}
+
+class stream_handler : public detail::enable_shared<stream_handler>
 {
 public:
-    // delta: void(accum, delta)
-    // finish: void(accum)
-    raw_stream()
-    {
-        M_blocks.reserve(8);
-    }
-
-    void reset()
-    {
-        accum.clear();
-        buffer.clear();
-        response_id.clear();
-        message_id.clear();
-        err.clear();
-        err_msg.clear();
-        M_blocks.clear();
-        finished = false;
-    }
-
-    std::function<void(std::string_view, std::string_view)> delta;
-    std::function<void(std::string_view)> finish;
-    std::string accum;
-    std::string buffer;
-    std::string response_id;
-    std::string message_id;
-    std::string err;
-    std::string err_msg;
-    std::time_t created_at = 0;
-    bool finished = false;
-
-    void parse(std::string_view delta_str);
-private:
-    std::vector<std::string_view> M_blocks; // optimization
-};
-
-class stream_handler
-{
-public:
-    stream_handler() = default;
     virtual ~stream_handler() = default;
 
     auto &response_id() const { return M_stream.response_id; }
@@ -122,15 +159,16 @@ public:
     auto created_at() const { return M_stream.created_at; }
     auto finished() const { return M_stream.finished; }
 
-    void reset() { M_stream.reset(); }
+    void clear() { M_stream.clear(); }
 protected:
-    raw_stream M_stream;
+    detail::raw_stream M_stream;
+
     friend class thread;
 };
 
 class tool;
 
-class thread
+class thread : public detail::enable_shared<thread>
 {
 public:
     struct message
@@ -141,11 +179,14 @@ public:
         std::time_t created_at;
     };
 
-    thread(assistant &assistant);
+    using handle_t = std::shared_ptr<thread>;
+
+    thread(secret, assistant &assistant) : M_assistant(assistant.get_ptr()) {}
+    static auto make(assistant &assistant) { return std::make_shared<thread>(secret{}, assistant); }
 
     auto &get_assistant() const { return *M_assistant; }
 
-    void send(nlohmann::json input, std::shared_ptr<stream_handler> res);
+    void send(nlohmann::json input, stream_handler &output);
 
     template <std::derived_from<tool> Tool>
     void send(Tool &tool, auto &&... args)
@@ -169,7 +210,7 @@ public:
     }
 private:
     std::vector<message> M_messages;
-    assistant *M_assistant;
+    assistant::handle_t M_assistant;
 
     std::thread M_thread;
     std::exception_ptr M_exception = nullptr;
@@ -186,13 +227,13 @@ struct delta_funs
 
 class text_stream_handler : public stream_handler
 {
-    struct secret {};
 public:
     using delta_fun_t = std::function<void(std::string_view accum, std::string_view delta)>;
     using finish_fun_t = std::function<void(std::string_view)>;
     using constructor_arg_t = delta_funs<delta_fun_t, finish_fun_t>;
+    using handle_t = std::shared_ptr<text_stream_handler>;
 
-    text_stream_handler(constructor_arg_t &&args, secret)
+    text_stream_handler(secret, constructor_arg_t &&args)
     {
         M_stream.delta = std::move(args.delta);
         M_stream.finish = std::move(args.finish);
@@ -200,7 +241,7 @@ public:
 
     static auto make(constructor_arg_t &&args)
     {
-        return std::make_shared<text_stream_handler>(std::move(args), secret{});
+        return std::make_shared<text_stream_handler>(secret{}, std::move(args));
     }
 
     void set_delta(delta_fun_t delta) { M_stream.delta = std::move(delta); }
@@ -209,15 +250,13 @@ public:
 
 class json_stream_handler : public stream_handler
 {
-    struct secret {};
 public:
-
     using delta_fun_t = std::function<void(const nlohmann::json &)>;
     using finish_fun_t = std::function<void(const nlohmann::json &)>;
-
     using constructor_arg_t = delta_funs<delta_fun_t, finish_fun_t>;
+    using handle_t = std::shared_ptr<json_stream_handler>;
 
-    json_stream_handler(constructor_arg_t &&args, secret)
+    json_stream_handler(secret, constructor_arg_t &&args)
     {
         set_delta(std::move(args.delta));
         set_finish(std::move(args.finish));
@@ -225,7 +264,7 @@ public:
 
     static auto make(constructor_arg_t &&args)
     {
-        return std::make_shared<json_stream_handler>(std::move(args), secret{});
+        return std::make_shared<json_stream_handler>(secret{}, std::move(args));
     }
 
     void set_delta(delta_fun_t _delta)

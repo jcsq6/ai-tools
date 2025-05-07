@@ -267,11 +267,11 @@ reword_window::reword_window(ai_handler &ai, window_handler &handler, context &&
 
 void reword_window::send(std::string_view selected)
 {
-    if (auto res = M_ai->reworder().send(M_thread, {
+    if (auto res = M_ai->reworder().send(*M_thread, {
         .selected = !selected.empty() ? std::optional(selected) : std::nullopt,
         .prompt = !ui->PromptEdit->text().isEmpty() ? std::optional(ui->PromptEdit->text().toStdString()) : std::nullopt,
         .images = ai::input::imgs_t{M_context.window, M_context.screen}
-    }, M_stream_handler); !res)
+    }, *M_stream_handler); !res)
     {
         std::print(std::cerr, "Failed to send request: {}\n", res.error());
         return;

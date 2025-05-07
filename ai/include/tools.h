@@ -1,6 +1,5 @@
 #pragma once
 #include "ai.h"
-#include <concepts>
 #include <optional>
 #include <ranges>
 #include <span>
@@ -54,25 +53,25 @@ namespace detail
 class tool
 {    
 public:
-    thread start_thread() 
+    auto start_thread() 
     {
-        return thread(M_assistant);
+        return thread::make(*M_assistant);
     }
 
-    template <typename Self> requires(std::derived_from<std::remove_cvref_t<Self>, tool>)
-    std::expected<void, std::string> send(this Self &&self, thread &th, input &&in, std::shared_ptr<stream_handler> res)
+    template <typename Self>
+    std::expected<void, std::string> send(this Self &&self, thread &th, input &&in, stream_handler &res)
     {
-        if (&th.get_assistant() != &self.M_assistant)
+        if (&th.get_assistant() != self.M_assistant.get())
             return std::unexpected("Thread does not belong to this assistant.");
 
-        return self.send_impl(th, std::move(in), std::move(res));
+        return self.send_impl(th, std::move(in), res);
     }
 
 protected:
-    assistant M_assistant;
+    assistant::handle_t M_assistant;
 
-    template <typename Self> requires(std::derived_from<std::remove_cvref_t<Self>, tool>)
-    auto make_format(this Self &&self)
+    template <typename Self>
+    auto make_format(this Self &self)
     {
         if constexpr (detail::has_schema<Self>)
         {
@@ -88,10 +87,10 @@ protected:
             return nlohmann::json{};
     }
 
-    template <typename Self> requires(std::derived_from<std::remove_cvref_t<Self>, tool>)
+    template <typename Self>
     void init(this Self &self, handle &client)
     {
-        self.M_assistant = assistant(
+        self.M_assistant = assistant::make(
             client,
             self.name(),
             self.instructions(),
@@ -122,7 +121,7 @@ private:
 
     friend tool;
 
-    std::expected<void, std::string> send_impl(thread &th, input &&in, std::shared_ptr<stream_handler> res);
+    std::expected<void, std::string> send_impl(thread &th, input &&in, stream_handler &res);
 };
 
 class ask : public tool
@@ -143,7 +142,7 @@ private:
 
     friend tool;
 
-    std::expected<void, std::string> send_impl(thread &th, input &&in, std::shared_ptr<stream_handler> res);
+    std::expected<void, std::string> send_impl(thread &th, input &&in, stream_handler &res);
 };
 
 AI_END

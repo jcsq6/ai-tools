@@ -93,7 +93,7 @@ public:
 public slots:
     void finish()
     {
-        M_ai->database().append(M_thread);
+        M_ai->database().append(*M_thread);
         emit finished();
     }
 
@@ -108,7 +108,7 @@ protected:
     }
 
     ai_handler *M_ai;
-    ai::thread M_thread;
+    ai::thread::handle_t M_thread;
     context M_context;
 };
 
