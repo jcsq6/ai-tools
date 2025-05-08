@@ -16,6 +16,9 @@ std::expected<ai::thread::handle_t, std::string> reword(ai::handle &client)
             std::print("\033[2J\033[H");
             std::print("Explanation: {}\n", accum.contains("explanation") && accum["explanation"].is_string() ? accum["explanation"].get<std::string>() : "");
             std::print("Improved: {}\n", accum.contains("improved") && accum["improved"].is_string() ? accum["improved"].get<std::string>() : "");
+        },
+        .error = [](ai::severity_t severity, std::string_view message) {
+            std::println(std::cerr, "{}: {}", severity == ai::severity_t::error ? "Error" : "Warning", message);
         }
     });
 
@@ -44,7 +47,10 @@ std::expected<ai::thread::handle_t, std::string> ask(ai::handle &client)
             std::print("{}", delta);
             std::cout.flush();
         },
-        .finish = [](std::string_view) { std::print("\n"); }
+        .finish = [](std::string_view) { std::print("\n"); },
+        .error = [](ai::severity_t severity, std::string_view message) {
+            std::println(std::cerr, "{}: {}", severity == ai::severity_t::error ? "Error" : "Warning", message);
+        }
     });
 
     constexpr std::string_view filename = "assets/tool_test.jpg";

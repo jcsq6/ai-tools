@@ -5,7 +5,6 @@
 #include <span>
 #include <expected>
 #include <optional>
-#include <type_traits>
 
 AI_BEG
 

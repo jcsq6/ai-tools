@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 
+#include <exception>
 #include <print>
 #include <iostream>
 #include <utility>
@@ -119,7 +120,7 @@ void detail::raw_stream::parse(std::string_view delta_str)
                 }
             } catch (const std::exception& e)
             {
-                std::print(std::cerr, "Failed to parse delta: {}, {}\n", e.what(), data);
+                error(severity_t::warning, std::format("Failed to parse delta - {}: {}", e.what(), data));
             }
         }
         else if (event_name == "response.output_text.done")
@@ -132,7 +133,7 @@ void detail::raw_stream::parse(std::string_view delta_str)
             }
             catch(const std::exception& e)
             {
-                std::print(std::cerr, "Failed to parse message id: {}\n", data);
+                error(severity_t::warning, std::format("Failed to parse message id - {}: {}", e.what(), data));
             }
 
             if (finish)
@@ -150,12 +151,12 @@ void detail::raw_stream::parse(std::string_view delta_str)
                     err = j["error"]["code"];
                     err_msg = j["error"]["message"];
 
-                    std::print(std::cerr, "Request failed with code {}: {}\n", err, err_msg);
+                    error(severity_t::error, std::format("Request failed with code {} - {}", err, err_msg));
                 }
                 finished = true;
             } catch (...)
             {
-                std::print(std::cerr, "Failed to parse failure message: {}\n", data);
+                error(severity_t::error, std::format("Failed to parse failure message - {}", data));
             }
             return;
         }
@@ -171,7 +172,7 @@ void detail::raw_stream::parse(std::string_view delta_str)
                 }
             } catch (...)
             {
-                std::print(std::cerr, "Failed to parse response: {}\n", data);
+                error(severity_t::warning, std::format("Failed to parse response id - {}", data));
             }
         }
     }
@@ -191,9 +192,6 @@ void thread::send(nlohmann::json input, stream_handler &output)
         std::print(std::cerr, "Input must be an array or string.\n");
         return;
     }
-
-    if (M_thread.joinable())
-        join();
 
     auto handle = get_ptr();
 
@@ -277,13 +275,20 @@ void thread::send(nlohmann::json input, stream_handler &output)
             }();
 
             handle->M_messages.push_back({.id = res->M_stream.response_id, .input = text_input, .response = res->M_stream.accum, .created_at = res->M_stream.created_at});
-        } catch (...)
+        }
+        catch (const std::exception &e)
         {
-            handle->M_exception = std::current_exception();
+            res->M_stream.error(severity_t::error, std::format("Error sending request - {}", e.what()));
+            handle->M_err = std::current_exception();
+        }
+        catch (...)
+        {
+            res->M_stream.error(severity_t::error, std::format("Error sending request - Unknown error occurred."));
+            handle->M_err = std::current_exception();
         }
     };
 
-    M_thread = std::thread(runner);
+    M_thread = std::jthread(runner);
 }
 
 void json_stream_handler::parse(std::string_view accum)

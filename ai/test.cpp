@@ -4,11 +4,17 @@
 #include <iostream>
 #include <ranges>
 
+void print_error(ai::severity_t severity, std::string_view message)
+{
+    std::println(std::cerr, "{}: {}", severity == ai::severity_t::error ? "Error" : "Warning", message);
+}
+
 void text_test(ai::handle &client)
 {
     auto res = ai::text_stream_handler::make({
         .delta = [](std::string_view accum, std::string_view delta) { std::print("{}", delta); },
-        .finish = [](std::string_view accum) { std::print("\n"); }
+        .finish = [](std::string_view accum) { std::print("\n"); },
+        .error = print_error
     });
     auto assistant = ai::assistant::make(client, "test", "You have no purpose outside of API endpoint testing", "gpt-4o-mini");
     auto thread = ai::thread::make(*assistant);
@@ -22,7 +28,8 @@ void text_test(ai::handle &client)
 void json_test(ai::handle &client)
 {
     auto res = ai::json_stream_handler::make({
-        .delta = [](const nlohmann::json &accum) { std::print("{}\n\n", accum.dump(4)); }
+        .delta = [](const nlohmann::json &accum) { std::print("{}\n\n", accum.dump(4)); },
+        .error = print_error
     });
     auto assistant = ai::assistant::make(client,
         "test",
@@ -64,7 +71,8 @@ void conversation(ai::handle &client, R &&tools)
 {
     auto res = ai::text_stream_handler::make({
         .delta = [](std::string_view accum, std::string_view delta) { std::print("{}", delta); std::cout.flush(); },
-        .finish = [](std::string_view accum) { std::print("\n"); }
+        .finish = [](std::string_view accum) { std::print("\n"); },
+        .error = print_error
     });
     auto assistant = ai::assistant::make(
         client, "test", "You have no purpose outside of API endpoint testing",
