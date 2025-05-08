@@ -9,59 +9,51 @@
 #include <QRegularExpression>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QtGui/qpalette.h>
 #include <print>
 
 #include <QStyledItemDelegate>
 #include <QTextDocument>
+#include <QAbstractTextDocumentLayout>
 #include <QPainter>
 #include <string>
 
-class HtmlDelegate : public QStyledItemDelegate
+class MarkdownDelegate : public QStyledItemDelegate
 {
 public:
-    HtmlDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
+    MarkdownDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
 
-    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    void paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
     {
-        QString text = index.data(Qt::DisplayRole).toString();
         QTextDocument doc;
-        doc.setHtml(text);
-    
-        auto topt = doc.defaultTextOption();
-        topt.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
-        doc.setDefaultTextOption(topt);
-    
-        // Set the document text width to the cell width to force wrapping
-        doc.setTextWidth(option.rect.width());
-    
-        painter->save();
-    
-        // Draw background
-        QStyleOptionViewItem opt(option);
-        initStyleOption(&opt, index);
-        opt.text = "";
-        opt.widget->style()->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
-    
-        // Translate painter and draw contents
-        painter->translate(option.rect.topLeft());
-        QRect clip(0, 0, option.rect.width(), option.rect.height());
-        doc.drawContents(painter, clip);
-        painter->restore();
+        doc.setMarkdown(idx.data(Qt::DisplayRole).toString());
+        doc.setTextWidth(opt.rect.width());
+
+        QStyleOptionViewItem optClean(opt);
+        initStyleOption(&optClean, idx);
+        optClean.text.clear();
+        opt.widget->style()->drawControl(QStyle::CE_ItemViewItem, &optClean, p, opt.widget);
+
+        QAbstractTextDocumentLayout::PaintContext ctx;
+        ctx.clip = QRectF(0, 0, opt.rect.width(), opt.rect.height());
+
+        if (opt.state & QStyle::State_Selected)
+            ctx.palette.setColor(QPalette::Text,opt.palette.color(QPalette::HighlightedText));
+        else
+            ctx.palette.setColor(QPalette::Text, opt.palette.color(QPalette::Text));
+
+        p->save();
+        p->translate(opt.rect.topLeft());
+        doc.documentLayout()->draw(p, ctx);
+        p->restore();
     }
 
-    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    QSize sizeHint(const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
     {
-        QString text = index.data(Qt::DisplayRole).toString();
-        
         QTextDocument doc;
-        doc.setHtml(text);
-
-        auto opt = doc.defaultTextOption();
-        opt.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
-        doc.setDefaultTextOption(opt);
-        doc.setTextWidth(option.rect.width());
-        
-        return QSize(doc.idealWidth(), doc.size().height());
+        doc.setMarkdown(idx.data(Qt::DisplayRole).toString());
+        doc.setTextWidth(opt.rect.width());
+        return doc.size().toSize();
     }
 };
 
@@ -78,35 +70,44 @@ auto title(std::string_view data)
             std::views::join | std::ranges::to<std::string>();
 }
 
-std::string to_html(const std::string &response)
+std::string to_markdown(const std::string &response, bool escape)
 {
-    try {
+    auto get_str = [escape](std::string &&str) {
+        if (!escape)
+            return str;
+
+        constexpr std::string_view escape_chars = "\\`*_{}[]<>()#+-.!|";
+        std::string escaped;
+        escaped.reserve(str.size() * 3 / 2);
+        for (char c : str)
+        {
+            if (std::ranges::contains(escape_chars, c))
+                escaped += '\\';
+            escaped += c;
+        }
+
+        return escaped;
+    };
+
+    try
+    {
         auto j = nlohmann::json::parse(response);
 
         std::ostringstream ss;
-        ss << "<html><body>";
         for (const auto &item : j.items()) {
-            ss << "<p style='font-weight: bold; font-size: 12px; color: black;'>" << title(item.key()) << ":</p>";
+            ss << "## " << title(item.key()) << '\n';
             if (item.value().is_string())
-                ss << "<p style='font-size:11px; color: black;'>" << item.value().get<std::string>() << "</p>";
+                ss << get_str(item.value()) << '\n';
             else if (item.value().is_array())
-            {
-                ss << "<ul>";
                 for (const auto &sub_item : item.value())
-                    ss << "<li>" << sub_item.get<std::string>() << "</li>";
-                ss << "</ul>";
-            }
+                    ss << "- " << get_str(sub_item.get<std::string>()) << '\n';
         }
-        ss << "</body></html>";
 
         return std::move(ss).str();
-    } catch (const std::exception &) {
-        return std::format("<html>"
-                            "<body>"
-                            "<p style='font-size:11px; color: black;'>{}</p>"
-                            "</body>"
-                            "</html>",
-                            response);
+    }
+    catch (const std::exception &)
+    {
+        return response;
     }
 }
 
@@ -119,12 +120,12 @@ history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
     M_ui->Messages->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     M_ui->AssistantLabel->setText(QString::fromStdString(entry.assistant));
     M_ui->DateLabel->setText(QString::fromStdString(entry.model));
-    M_ui->Messages->setItemDelegate(new HtmlDelegate(this));
+    M_ui->Messages->setItemDelegate(new MarkdownDelegate(this));
     for (const auto &message : entry.messages)
     {
         M_ui->Messages->insertRow(M_ui->Messages->rowCount());
-        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, new QTableWidgetItem(QString::fromStdString(to_html(message.input))));
-        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, new QTableWidgetItem(QString::fromStdString(to_html(message.response))));
+        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, new QTableWidgetItem(QString::fromStdString(to_markdown(message.input, true))));
+        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, new QTableWidgetItem(QString::fromStdString(to_markdown(message.response, false))));
     }
 
     M_ui->Messages->resizeColumnsToContents();
