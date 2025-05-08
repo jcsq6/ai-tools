@@ -58,7 +58,7 @@ std::expected<ai::thread::handle_t, std::string> ask(ai::handle &client)
     auto image = std::ranges::subrange{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}} | std::ranges::to<std::vector>();
     
     if (auto err = ask.send(*thread, {
-        .prompt = "How do I change the theme? What are some good modern themes to use? Use the internet.",
+        .prompt = "How do I change the theme? What are some good modern themes to use? Use the internet to find themes.",
         .images = ai::input::imgs_t{image}
     }, *res); !err)
         return std::unexpected(std::format("Failed to send request: {}", err.error()));

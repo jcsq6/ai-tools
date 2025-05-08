@@ -302,7 +302,7 @@ void reword_window::on_delta(const nlohmann::json &accum)
 
 void reword_window::on_finish(const nlohmann::json &accum)
 {
-    auto fun = [this, accum]() 
+    auto fun = [this, &accum]() 
     {
         ui->PromptEdit->clear();
         ui->PromptEdit->setDisabled(false);

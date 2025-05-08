@@ -276,7 +276,15 @@ void thread::send(nlohmann::json input, stream_handler &output)
                 return std::string{};
             }();
 
-            handle->M_messages.push_back({.id = res->M_stream.response_id, .input = text_input, .response = res->M_stream.accum, .created_at = res->M_stream.created_at});
+            auto response = [&res]() {
+                using namespace std::string_view_literals;
+                auto accum = res->M_stream.accum;
+                while (auto found = std::ranges::search(accum, "?utm_source=openai"sv))
+                    accum.erase(found.begin(), found.end());
+                return accum;
+            }();
+
+            handle->M_messages.push_back({.id = res->M_stream.response_id, .input = text_input, .response = response, .created_at = res->M_stream.created_at});
         }
         catch (const std::exception &e)
         {
