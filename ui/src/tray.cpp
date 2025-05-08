@@ -13,49 +13,37 @@
 #include <print>
 
 #include <QStyledItemDelegate>
-#include <QTextDocument>
 #include <QAbstractTextDocumentLayout>
+#include <QTextBrowser>
 #include <QPainter>
 #include <string>
 
-class MarkdownDelegate : public QStyledItemDelegate
+class MarkdownBrowseDelegate : public QStyledItemDelegate
 {
 public:
-    MarkdownDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
+    using QStyledItemDelegate::QStyledItemDelegate;
 
-    void paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
+    QWidget *createEditor(QWidget *parent,
+                          const QStyleOptionViewItem &,
+                          const QModelIndex &) const override
     {
-        QTextDocument doc;
-        doc.setMarkdown(idx.data(Qt::DisplayRole).toString());
-        doc.setTextWidth(opt.rect.width());
-
-        QStyleOptionViewItem optClean(opt);
-        initStyleOption(&optClean, idx);
-        optClean.text.clear();
-        opt.widget->style()->drawControl(QStyle::CE_ItemViewItem, &optClean, p, opt.widget);
-
-        QAbstractTextDocumentLayout::PaintContext ctx;
-        ctx.clip = QRectF(0, 0, opt.rect.width(), opt.rect.height());
-
-        if (opt.state & QStyle::State_Selected)
-            ctx.palette.setColor(QPalette::Text,opt.palette.color(QPalette::HighlightedText));
-        else
-            ctx.palette.setColor(QPalette::Text, opt.palette.color(QPalette::Text));
-
-        p->save();
-        p->translate(opt.rect.topLeft());
-        doc.documentLayout()->draw(p, ctx);
-        p->restore();
+        auto *w = new QTextBrowser(parent);
+        w->setOpenExternalLinks(true);
+        w->setFrameStyle(QFrame::NoFrame);
+        w->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        w->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        w->setReadOnly(true);
+        w->setTextInteractionFlags(Qt::TextBrowserInteraction | Qt::TextSelectableByKeyboard | Qt::TextSelectableByMouse);
+        return w;
     }
 
-    QSize sizeHint(const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
+    void setEditorData(QWidget *editor, const QModelIndex &idx) const override
     {
-        QTextDocument doc;
-        doc.setMarkdown(idx.data(Qt::DisplayRole).toString());
-        doc.setTextWidth(opt.rect.width());
-        return doc.size().toSize();
+        QString md = idx.data(Qt::DisplayRole).toString();
+        static_cast<QTextBrowser *>(editor)->setMarkdown(md);
     }
 };
+
 
 Q_DECLARE_METATYPE(const ai::database::entry*)
 
@@ -72,7 +60,12 @@ auto title(std::string_view data)
 
 std::string to_markdown(const std::string &response, bool escape)
 {
-    auto get_str = [escape](std::string &&str) {
+    auto get_str = [escape](std::string_view in) {
+        auto str = in |
+                           std::views::reverse |
+                           std::views::drop_while([](char c) { return std::isspace(c); }) |
+                           std::views::reverse | std::ranges::to<std::string>();
+
         if (!escape)
             return str;
 
@@ -97,10 +90,10 @@ std::string to_markdown(const std::string &response, bool escape)
         for (const auto &item : j.items()) {
             ss << "## " << title(item.key()) << '\n';
             if (item.value().is_string())
-                ss << get_str(item.value()) << '\n';
+                ss << get_str(item.value().get<std::string_view>()) << '\n';
             else if (item.value().is_array())
                 for (const auto &sub_item : item.value())
-                    ss << "- " << get_str(sub_item.get<std::string>()) << '\n';
+                    ss << "- " << get_str(sub_item.get<std::string_view>()) << '\n';
         }
 
         return std::move(ss).str();
@@ -120,12 +113,14 @@ history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
     M_ui->Messages->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     M_ui->AssistantLabel->setText(QString::fromStdString(entry.assistant));
     M_ui->DateLabel->setText(QString::fromStdString(entry.model));
-    M_ui->Messages->setItemDelegate(new MarkdownDelegate(this));
+    M_ui->Messages->setItemDelegate(new MarkdownBrowseDelegate(M_ui->Messages));
     for (const auto &message : entry.messages)
     {
         M_ui->Messages->insertRow(M_ui->Messages->rowCount());
         M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, new QTableWidgetItem(QString::fromStdString(to_markdown(message.input, true))));
         M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, new QTableWidgetItem(QString::fromStdString(to_markdown(message.response, false))));
+        M_ui->Messages->openPersistentEditor(M_ui->Messages->item(M_ui->Messages->rowCount() - 1, 0));
+        M_ui->Messages->openPersistentEditor(M_ui->Messages->item(M_ui->Messages->rowCount() - 1, 1));
     }
 
     M_ui->Messages->resizeColumnsToContents();
