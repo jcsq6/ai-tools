@@ -193,6 +193,8 @@ void thread::send(nlohmann::json input, stream_handler &output)
         return;
     }
 
+    join();
+
     auto handle = get_ptr();
 
     auto runner = [input = std::move(input), &output, handle = std::move(handle)]()

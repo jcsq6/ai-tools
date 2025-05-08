@@ -12,7 +12,7 @@ void print_error(ai::severity_t severity, std::string_view message)
 void text_test(ai::handle &client)
 {
     auto res = ai::text_stream_handler::make({
-        .delta = [](std::string_view accum, std::string_view delta) { std::print("{}", delta); },
+        .delta = [](std::string_view accum, std::string_view delta) { std::print("{}", delta); std::cout.flush(); },
         .finish = [](std::string_view accum) { std::print("\n"); },
         .error = print_error
     });
