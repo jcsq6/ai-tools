@@ -238,14 +238,30 @@ tray_window::~tray_window() = default;
 
 void tray_window::update_history()
 {
-    auto extract = [](std::string_view input) {
+    auto extract = [](std::string_view input, std::string_view assistant) {
         try
         {
             auto json = nlohmann::json::parse(input);
-            if (json.contains("Selected") && json["Selected"].is_string())
-                return json["Selected"].get<std::string>();
-            else
-                throw 0;
+            if (assistant == "Reworder")
+            {
+                if (json.contains("Selected") && json["Selected"].is_string())
+                    return json["Selected"].get<std::string>();
+            }
+            else if (assistant == "Ask")
+            {
+                if (json.contains("Prompt") && json["Prompt"].is_string())
+                    return json["Prompt"].get<std::string>();
+            }
+            
+            for (const auto &item : json.items()) {
+                if (item.value().is_string())
+                    return item.value().get<std::string>();
+                else if (item.value().is_array())
+                    for (const auto &sub_item : item.value())
+                        return sub_item.get<std::string>();
+            }
+
+            throw 0;
         }
         catch (...)
         {
@@ -258,7 +274,7 @@ void tray_window::update_history()
         auto date = new QStandardItem(QString::fromStdString(conversation.date()));
 
         auto content = new QStandardItem();
-        content->setData(QString::fromStdString(extract(conversation.messages[0].input)), Qt::DisplayRole); // Display text
+        content->setData(QString::fromStdString(extract(conversation.messages[0].input, conversation.assistant)), Qt::DisplayRole); // Display text
 
         QJsonObject json;
         json["assistant"] = QString::fromStdString(conversation.assistant);
