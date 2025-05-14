@@ -11,9 +11,23 @@
 #include <QtWidgets/qlineedit.h>
 #include <QtWidgets/qtextedit.h>
 #include <optional>
+#include <qtresource.h>
 #include <string_view>
 
 #include <iostream>
+#include <type_traits>
+
+#include <QResource>
+
+struct ToolWindow_init
+{
+    ToolWindow_init()
+    {
+        Q_INIT_RESOURCE(ToolWindow);
+    }
+};
+
+static ToolWindow_init init;
 
 prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&ctx) :
     QWidget(),
@@ -77,32 +91,42 @@ prompt_window::prompt_window(ai_handler &ai, window_handler &handler, context &&
         auto prompt = ui->PromptEdit->text();
 
         auto tool = ui->ToolSelector->currentText();
-        if (tool == "Reword")
-        {
-            if (selected.isEmpty())
-                return;
 
+        auto setup = [&]{
             M_context.selected_text = selected.toStdString();
 
             if (!ui->IncludeFocused->isChecked())
                 window.clear();
             if (!ui->IncludeScreen->isChecked())
                 screen.clear();
+        };
 
-            auto res = M_handler->create<reword_window>(*M_ai, *M_handler, std::move(M_context), prompt.toStdString());
+        auto make = [&]<typename T>(std::type_identity<T>)
+        {
+            auto res = M_handler->create<T>(*M_ai, *M_handler, std::move(M_context), prompt.toStdString());
             res->setAttribute(Qt::WA_DeleteOnClose);
             res->setWindowFlag(Qt::WindowStaysOnTopHint);
             res->raise();
             res->activateWindow();
             res->show();
+        };
+
+        if (tool == "Reword")
+        {
+            if (selected.isEmpty())
+                return;
+
+            setup();
+            make(std::type_identity<reword_window>{});
         }
         else if (tool == "Create")
         {
-
+            return;
         }
         else if (tool == "Ask")
         {
-
+            setup();
+            make(std::type_identity<ask_window>{});
         }
         else
             return;
@@ -317,3 +341,10 @@ void reword_window::on_finish(const nlohmann::json &accum)
         QMetaObject::invokeMethod(this, fun, Qt::QueuedConnection);
 }
 reword_window::~reword_window() = default;
+
+ask_window::ask_window(ai_handler &ai, window_handler &handler, context &&ctx, std::string_view prompt) :
+    ui_tool(ai.ask(), ai, handler, std::move(ctx)),
+    M_conversation(ai, this)
+{
+}
+ask_window::~ask_window() = default;

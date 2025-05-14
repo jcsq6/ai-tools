@@ -18,6 +18,16 @@
 #include <QPainter>
 #include <string>
 
+struct Tray_init
+{
+    Tray_init()
+    {
+        Q_INIT_RESOURCE(TrayWindow);
+    }
+};
+
+static Tray_init tray_init;
+
 class MarkdownBrowseDelegate : public QStyledItemDelegate
 {
 public:
