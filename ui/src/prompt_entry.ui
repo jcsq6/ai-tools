@@ -26,9 +26,7 @@
    <string>AI-Tools</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">background-color:rgb(246, 244, 240);
-color: rgb(86, 87, 89);
-</string>
+   <string notr="true"/>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2" stretch="5,1">
    <property name="spacing">
@@ -482,15 +480,13 @@ padding-left: 2px;</string>
           <property name="styleSheet">
            <string notr="true">QComboBox {
 	combobox-popup: 0;
-	background: #FAFAFA;
 	border: 1px solid #D0D0D0;
 	border-radius: 6px;
 	padding-right: 28px;
 	padding-left: 7px;
-	selection-background-color: #007AFF;
 	font-size: 10px;
 }
-QComboBox:hover  { background:#FFFFFF; border-color:#A0A0A0; }
+QComboBox:hover  { border-color:#A0A0A0; }
 QComboBox:focus  { border-color:#007AFF; }
 
 QComboBox::drop-down {
@@ -505,7 +501,6 @@ QComboBox::down-arrow {
 }
 
 QComboBox QAbstractItemView {
-	background:#FFFFFF;
 	border:1px solid #D0D0D0;
 	border-radius:6px;
 	padding:4px 0;
@@ -520,8 +515,6 @@ QComboBox QAbstractItemView::item
 
 QComboBox QAbstractItemView::item:selected
 {
-	background:#007AFF;
-	color:#FFFFFF;
 }</string>
           </property>
           <property name="editable">
@@ -572,13 +565,13 @@ QComboBox QAbstractItemView::item:selected
 	padding: 2px;
 	border-radius: 2px;
 	border: none;
-	background-color: rgba(255, 255, 255, 0);	
+	background-color: transparent;	
 }
 QToolButton:hover {
 	padding: 2px;
 	border-radius: 2px;
 	border: none;
-	background-color: rgba(230, 232, 232, 128);
+	background-color: palette(light);
 }</string>
           </property>
           <property name="text">

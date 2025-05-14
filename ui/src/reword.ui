@@ -32,9 +32,7 @@
    <string>Reword</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">background-color:rgb(246, 244, 240);
-color: rgb(86, 87, 89);
-</string>
+   <string notr="true"/>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="3,3,1,0">
    <property name="spacing">
@@ -237,13 +235,10 @@ border-radius: 8px;</string>
 	text-align:center;
 	border: 1px solid rgb(180, 179, 178);
 	border-radius: 4px;
-	background-color: rgb(249, 249, 244);	
 }
 QPushButton:hover {
-	background-color: rgb(238, 236, 233);
 }
 QPushButton:checked {
-	background-color: rgb(214, 212, 212);
 }</string>
         </property>
         <property name="text">
@@ -277,13 +272,10 @@ QPushButton:checked {
 	text-align:center;
 	border: 1px solid rgb(180, 179, 178);
 	border-radius: 4px;
-	background-color: rgb(249, 249, 244);	
 }
 QPushButton:hover {
-	background-color: rgb(238, 236, 233);
 }
 QPushButton:checked {
-	background-color: rgb(214, 212, 212);
 }</string>
         </property>
         <property name="text">
@@ -329,13 +321,13 @@ QPushButton:checked {
 	padding: 2px;
 	border-radius: 2px;
 	border: none;
-	background-color: rgba(255, 255, 255, 0);	
+	background-color: transparent;	
 }
 QToolButton:hover {
 	padding: 2px;
 	border-radius: 2px;
 	border: none;
-	background-color: rgba(230, 232, 232, 128);
+	background-color: palette(light);
 }</string>
         </property>
         <property name="text">

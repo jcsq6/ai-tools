@@ -20,8 +20,7 @@
    <string>Conversation</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">background-color:rgb(246, 244, 240);
-color: black;</string>
+   <string notr="true"/>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -45,7 +44,7 @@ color: black;</string>
       </size>
      </property>
      <property name="styleSheet">
-      <string notr="true">background-color: rgb(247, 245, 242);</string>
+      <string notr="true"/>
      </property>
      <property name="frameShape">
       <enum>QFrame::Shape::StyledPanel</enum>
@@ -115,12 +114,11 @@ color: black;</string>
     <widget class="QTableWidget" name="Messages">
      <property name="styleSheet">
       <string notr="true">QTableWidget {
-	border: 1px solid rgb(180, 179, 178);
+	border: 1px solid;
 	border-radius: 8px;
 }
 
 QHeaderView {
-	background-color: rgb(179, 177, 174);
     font-weight: bold;
     border: none;
 	border-top-left-radius: 8px;
@@ -128,10 +126,9 @@ QHeaderView {
 }
 
 QHeaderView::section:horizontal {
-	background-color: rgb(179, 177, 174);
     border: none;
 	padding: 4px;
-	border-bottom: 1px solid rgb(180, 179, 178);
+	border-bottom: 1px solid;
 	border-radius: 0;
 }
 
