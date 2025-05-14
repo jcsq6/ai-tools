@@ -1,5 +1,7 @@
 <RCC>
   <qresource prefix="/assets">
+    <file>plus.png</file>
+    <file>chevron-down.png</file>
     <file>filter.png</file>
     <file>search.png</file>
     <file>history.png</file>

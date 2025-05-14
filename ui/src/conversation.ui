@@ -177,12 +177,6 @@ QComboBox QAbstractItemView {
 QComboBox QAbstractItemView::item
 {
 	border-radius: 4px;
-}
-
-QComboBox QAbstractItemView::item:selected
-{
-	/* background:#007AFF; */
-	color:#FFFFFF;
 }</string>
         </property>
         <property name="editable">
@@ -434,7 +428,7 @@ QToolButton:hover {
 	padding: 2px;
 	border-radius: 2px;
 	border: none;
-	/* background-color: rgba(230, 232, 232, 128); */
+	/*background-color: rgba(230, 232, 232, 128); */
 }</string>
             </property>
             <property name="text">

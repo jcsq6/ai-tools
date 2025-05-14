@@ -1,12 +1,15 @@
 #pragma once
 
 #include <QWidget>
+
 #include <string_view>
+
 #include "ai.h"
 #include "database.h"
 #include "tools.h"
 #include "window_handler.h"
 #include "ai_handler.h"
+#include "conversation.h"
 
 #include "system.h"
 
@@ -124,7 +127,21 @@ public:
     ~reword_window();
 private:
     std::unique_ptr<Ui::Reword> ui;
-    std::shared_ptr<ai::json_stream_handler> M_stream_handler;
+    ai::json_stream_handler::handle_t M_stream_handler;
+
+    void on_delta(const nlohmann::json &accum);
+    void on_finish(const nlohmann::json &accum);
+    void send(std::string_view selected = {});
+};
+
+class ask_window : public ui_tool
+{
+    Q_OBJECT
+public:
+    explicit ask_window(ai_handler &ai, window_handler &handler, context &&ctx, std::string_view prompt);
+    ~ask_window();
+private:
+    conversation M_conversation;    
 
     void on_delta(const nlohmann::json &accum);
     void on_finish(const nlohmann::json &accum);
