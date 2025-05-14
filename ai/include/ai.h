@@ -1,13 +1,11 @@
 #pragma once
-#include <__expected/expected.h>
+#include <expected>
 #include <concepts>
 #include <memory>
 #include <ranges>
 #include <string_view>
 #include <type_traits>
 #include <utility>
-#define AI_BEG namespace ai {
-#define AI_END }
 
 #include <print>
 
@@ -17,6 +15,9 @@
 #include <functional>
 
 #include <json.hpp>
+
+#define AI_BEG namespace ai {
+#define AI_END }
 
 AI_BEG
 

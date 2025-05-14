@@ -120,7 +120,8 @@ void detail::raw_stream::parse(std::string_view delta_str)
                 }
             } catch (const std::exception& e)
             {
-                error(severity_t::warning, std::format("Failed to parse delta - {}: {}", e.what(), data));
+                if (error)
+                    error(severity_t::warning, std::format("Failed to parse delta - {}: {}", e.what(), data));
             }
         }
         else if (event_name == "response.output_text.done")
@@ -133,7 +134,8 @@ void detail::raw_stream::parse(std::string_view delta_str)
             }
             catch(const std::exception& e)
             {
-                error(severity_t::warning, std::format("Failed to parse message id - {}: {}", e.what(), data));
+                if (error)
+                    error(severity_t::warning, std::format("Failed to parse message id - {}: {}", e.what(), data));
             }
 
             if (finish)
@@ -150,13 +152,15 @@ void detail::raw_stream::parse(std::string_view delta_str)
                 {
                     err = j["error"]["code"];
                     err_msg = j["error"]["message"];
-
-                    error(severity_t::error, std::format("Request failed with code {} - {}", err, err_msg));
+                    
+                    if (error)
+                        error(severity_t::error, std::format("Request failed with code {} - {}", err, err_msg));
                 }
                 finished = true;
             } catch (...)
             {
-                error(severity_t::error, std::format("Failed to parse failure message - {}", data));
+                if (error)
+                    error(severity_t::error, std::format("Failed to parse failure message - {}", data));
             }
             return;
         }
@@ -172,7 +176,8 @@ void detail::raw_stream::parse(std::string_view delta_str)
                 }
             } catch (...)
             {
-                error(severity_t::warning, std::format("Failed to parse response id - {}", data));
+                if (error)
+                    error(severity_t::warning, std::format("Failed to parse response id - {}", data));
             }
         }
     }
@@ -288,12 +293,18 @@ void thread::send(nlohmann::json input, stream_handler &output)
         }
         catch (const std::exception &e)
         {
-            res->M_stream.error(severity_t::error, std::format("Error sending request - {}", e.what()));
+            if (res->M_stream.error)
+                res->M_stream.error(severity_t::error, std::format("Error sending request - {}", e.what()));
+            else
+                std::print(std::cerr, "Error sending request - {}\n", e.what());
             handle->M_err = std::current_exception();
         }
         catch (...)
         {
-            res->M_stream.error(severity_t::error, std::format("Error sending request - Unknown error occurred."));
+            if (res->M_stream.error)
+                res->M_stream.error(severity_t::error, std::format("Error sending request - Unknown error occurred."));
+            else
+                std::print(std::cerr, "Error sending request - Unknown error occurred.\n");
             handle->M_err = std::current_exception();
         }
     };
