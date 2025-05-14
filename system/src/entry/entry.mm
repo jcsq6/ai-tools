@@ -15,6 +15,8 @@
     NSArray<NSString *> *args = NSProcessInfo.processInfo.arguments;
     std::vector<std::string> str_args;
     std::vector<char *> argv;
+    str_args.reserve(args.count);
+    argv.reserve(args.count);
     for (NSString *arg in args) {
         str_args.push_back([arg UTF8String]);
         argv.push_back(str_args.back().data());

@@ -386,6 +386,8 @@ result<NSDictionary *> handle::get_info()
 {
     pid_t owner = [app processIdentifier];
 
+    std::println("Got application \"{}\"", [[app localizedName] UTF8String]);
+
     CFArrayRef window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
     NSArray *windows = CFBridgingRelease(window_list);
     for (NSDictionary *win in windows)
