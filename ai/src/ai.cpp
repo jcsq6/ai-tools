@@ -201,10 +201,9 @@ void thread::send(nlohmann::json input, stream_handler &output)
     join();
 
     auto handle = get_ptr();
-
-    auto runner = [input = std::move(input), &output, handle = std::move(handle)]()
+    auto res = output.get_ptr();
+    auto runner = [input = std::move(input), &output, handle = std::move(handle), res = std::move(res)]()
     {
-        auto res = output.get_ptr();
         res->clear();
         try
         {
@@ -351,6 +350,12 @@ void json_stream_handler::parse(std::string_view accum)
             stack.push_back(c);
         else if (close.find(c) != std::string_view::npos)
             stack.pop_back();
+    }
+
+    if (stack.empty())
+    {
+        M_accum = nlohmann::json::parse(modified);
+        return;
     }
 
     bool empty = false;
