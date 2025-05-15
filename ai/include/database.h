@@ -1,5 +1,6 @@
 #pragma once
 #include "ai.h"
+#include <expected>
 #include <filesystem>
 #include <vector>
 
@@ -29,7 +30,7 @@ public:
             std::filesystem::create_directories(M_path);
     }
 
-    void append(thread &th);
+    std::expected<entry *, std::string> append(thread &th);
 
     const auto &get_entries() const { return M_entries; }
 private:

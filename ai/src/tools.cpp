@@ -1,12 +1,114 @@
 #include "tools.h"
 #include <cppcodec/base64_rfc4648.hpp>
 
-std::string to_base64(std::span<const std::byte> data)
+#include <fstream>
+#include <filesystem>
+#include <iostream>
+#include <algorithm>
+
+
+static std::string to_base64(std::span<const std::byte> data)
 {
     return cppcodec::base64_rfc4648::encode(reinterpret_cast<const uint8_t*>(data.data()), data.size());
 }
 
 AI_BEG
+
+// TODO: use files api
+void file_view::process_data()
+{
+    if (data.empty())
+    {
+        std::print(std::cerr, "Data is empty.\n");
+        this->filename.clear();
+        return;
+    }
+
+    type = type_t::none;
+
+    std::filesystem::path path(filename);
+    filename = path.filename().string();
+    if (auto ext = path.extension(); ext == ".png" || ext == ".jpg" || ext == ".jpeg")
+    {
+        data = std::format("data:image/jpeg;base64,{}", to_base64({(const std::byte *)data.data(), data.size()}));
+        type = type_t::jpg;
+    }
+    else if (ext == ".pdf")
+    {
+        data = to_base64({(const std::byte *)data.data(), data.size()});
+        type = type_t::pdf;
+    }
+    else
+    {
+        if (!std::ranges::all_of(data, [](char b) { return (unsigned int)b < 128; }))
+        {
+            data.clear();
+            this->filename.clear();
+            std::print(std::cerr, "File {} is not a text file.\n", filename);
+        }
+        else
+        {
+            type = type_t::text;
+            data = std::format("File \"{}\":\n{}", filename, std::string_view((const char *)data.data(), data.size()));
+        }
+    }
+}
+
+file_view::file_view(std::span<const std::byte> bytes, std::string_view filename) : filename(filename), type(type_t::none)
+{
+    if (filename.empty())
+    {
+        std::print(std::cerr, "Filename is empty.\n");
+        this->filename.clear();
+        return;
+    }
+
+    process_data();
+}
+
+file_view::file_view(std::string_view filename) : filename(filename), type(type_t::none)
+{
+    std::ifstream file(std::string(filename), std::ios::binary);
+    if (!file)
+    {
+        std::print(std::cerr, "Failed to open file: {}\n", filename);
+        this->filename.clear();
+        return;
+    }
+
+    file.seekg(0, std::ios::end);
+    auto size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    data.resize(size);
+    file.read(reinterpret_cast<char *>(data.data()), size);
+
+    process_data();
+}
+
+nlohmann::json file_view::to_json() const
+{
+    switch (type)
+    {
+    case type_t::jpg:
+        return {
+            {"type", "input_image"},
+            {"image_url", data}
+        };
+    case type_t::pdf:
+        return {
+            {"type", "input_file"},
+            {"file_name", filename},
+            {"file_data", data}
+        };
+    case type_t::text:
+        return {
+            {"type", "input_text"},
+            {"text", data}
+        };
+    default:
+        return {};
+    }
+}
 
 nlohmann::json reworder::M_schema = {
     {"type", "object"},
@@ -78,12 +180,9 @@ std::expected<void, std::string> reworder::send_impl(thread &th, input &&in, str
         }
     });
 
-    for (auto image : in.images->get())
-        if (!image.empty())
-            content.push_back({
-                {"type", "input_image"},
-                {"image_url", std::format("data:image/jpeg;base64,{}", to_base64(image))}
-            });
+    for (auto &file : in.files)
+        if (!file.empty())
+            content.push_back(file.to_json());
 
     auto input = nlohmann::json::array({
         {
@@ -153,12 +252,9 @@ std::expected<void, std::string> ask::send_impl(thread &th, input &&in, stream_h
         }
     });
 
-    for (auto image : in.images->get())
-        if (!image.empty())
-            content.push_back({
-                {"type", "input_image"},
-                {"image_url", std::format("data:image/jpeg;base64,{}", to_base64(image))}
-            });
+    for (auto &file : in.files)
+        if (!file.empty())
+            content.push_back(file.to_json());
 
     auto input = nlohmann::json::array({
         {

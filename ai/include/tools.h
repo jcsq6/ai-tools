@@ -8,39 +8,35 @@
 
 AI_BEG
 
+class file_view
+{
+public:
+    file_view() = default;
+    file_view(std::string_view filename);
+
+    file_view(std::span<const std::byte> bytes, std::string_view filename);
+
+    template <std::ranges::contiguous_range R>
+    file_view(R &&bytes, std::string_view filename) : file_view(std::as_bytes(std::span(bytes)), filename)
+    {
+    }
+
+    nlohmann::json to_json() const;
+    bool empty() const { return type == type_t::none || data.empty(); }
+private:
+    std::string filename;
+    std::string data;
+    enum class type_t { jpg, pdf, text, none } type;
+
+    void process_data();
+};
+
 struct input
 {
     std::optional<std::string_view> selected = std::nullopt;
     std::optional<std::string_view> prompt = std::nullopt;
 
-    struct images_struct
-    {
-        static constexpr std::size_t max_images = 4;
-
-        template <std::ranges::contiguous_range... Rs> requires(sizeof...(Rs) <= max_images)
-        images_struct(Rs &&...imgs) : 
-            images{}, count{}
-        {
-            auto add_image = [this](auto &&img) {
-                if (!std::ranges::empty(img))
-                    images[count++] = std::as_bytes(std::span(img));
-            };
-            (add_image(std::forward<Rs>(imgs)), ...);
-        }
-
-        auto get() const
-        {
-            return std::span(images).subspan(0, count);
-        }
-        
-    private:
-        std::array<std::span<const std::byte>, max_images> images;
-        std::size_t count = 0;
-    };
-
-    using imgs_t = images_struct;
-
-    std::optional<images_struct> images;
+    std::vector<file_view> files = {};
 };
 
 namespace detail

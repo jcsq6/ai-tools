@@ -1,5 +1,6 @@
 #include "database.h"
 
+#include <expected>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -15,13 +16,13 @@ std::string database::entry::date() const
     return (std::ostringstream() << std::put_time(std::localtime(&messages.front().created_at), "%m/%d-%Y")).str();
 }
 
-void database::append(thread &th)
+std::expected<database::entry *, std::string> database::append(thread &th)
 {
     th.join();
 
     auto &messages = th.get_messages();
     if (messages.empty())
-        return;
+        return std::unexpected("No messages to save.");
 
     std::filesystem::path dbpath(M_path);
     std::filesystem::create_directories(dbpath);
@@ -47,7 +48,7 @@ void database::append(thread &th)
 
     std::ofstream file(filename);
     if (!file)
-        throw std::runtime_error(std::format("Failed to open database file: {}", filename.string()));
+        return std::unexpected(std::format("Failed to open database file: {}", filename.string()));
 
     M_entries.push_back({
         .assistant = th.get_assistant().name(),
@@ -69,6 +70,8 @@ void database::append(thread &th)
     file << j.dump(4) << '\n';
 
     std::print("Saved thread to {}\n", filename.string());
+
+    return &M_entries.back();
 }
 
 void database::load()

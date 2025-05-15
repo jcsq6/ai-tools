@@ -3,7 +3,6 @@
 #include "tools.h"
 #include <print>
 #include <iostream>
-#include <fstream>
 #include <string_view>
 
 std::expected<ai::thread::handle_t, std::string> reword(ai::handle &client)
@@ -22,15 +21,11 @@ std::expected<ai::thread::handle_t, std::string> reword(ai::handle &client)
         }
     });
 
-    constexpr std::string_view filename = "assets/tool_test.jpg";
-    std::ifstream file(filename.data(), std::ios::binary);
-    auto image = std::ranges::subrange{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}} | std::ranges::to<std::vector>();
-    
     auto text = "This is a paragraph that is not written very well. It has a lot of issues, like grammar problems and unclear ideas, and it doesn't really make sense. I think it could be improved a lot if someone could help make it better and easier to understand.";
     if (auto err = reworder.send(*thread, {
         .selected = text,
         .prompt = "Please improve the text.",
-        .images = ai::input::imgs_t{image}
+        .files = {ai::file_view("assets/tool_test.jpg")}
     }, *res); !err)
         return std::unexpected(std::format("Failed to send request: {}", err.error()));
     
@@ -52,14 +47,10 @@ std::expected<ai::thread::handle_t, std::string> ask(ai::handle &client)
             std::println(std::cerr, "{}: {}", severity == ai::severity_t::error ? "Error" : "Warning", message);
         }
     });
-
-    constexpr std::string_view filename = "assets/tool_test.jpg";
-    std::ifstream file(filename.data(), std::ios::binary);
-    auto image = std::ranges::subrange{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}} | std::ranges::to<std::vector>();
     
     if (auto err = ask.send(*thread, {
         .prompt = "How do I change the theme? What are some good modern themes to use? Use the internet to find themes.",
-        .images = ai::input::imgs_t{image}
+        .files = {ai::file_view("assets/tool_test.jpg")}
     }, *res); !err)
         return std::unexpected(std::format("Failed to send request: {}", err.error()));
     
@@ -89,7 +80,8 @@ int main(int argc, char *argv[])
         }
 
         ai::database db("database", false);
-        db.append(**res);
+        if (auto r = db.append(**res); !r)
+            std::print(std::cerr, "Failed to append thread: {}\n", r.error());
 
         return 0;
     }

@@ -22,7 +22,8 @@ void text_test(ai::handle &client)
     thread->send("What did I just say?", *res);
 
     ai::database db("database", false);
-    db.append(*thread);
+    if (auto r = db.append(*thread); !r)
+        std::print(std::cerr, "Failed to append thread: {}\n", r.error());
 }
 
 void json_test(ai::handle &client)
@@ -63,7 +64,8 @@ void json_test(ai::handle &client)
     thread->send("Give me something to shatter my json parser?", *res);
 
     ai::database db("database", false);
-    db.append(*thread);
+    if (auto r = db.append(*thread); !r)
+        std::print(std::cerr, "Failed to append thread: {}\n", r.error());
 }
 
 template <std::ranges::range R>
@@ -95,7 +97,8 @@ void conversation(ai::handle &client, R &&tools)
     }
 
     ai::database db("database", false);
-    db.append(*thread);
+    if (auto r = db.append(*thread); !r)
+        std::print(std::cerr, "Failed to append thread: {}\n", r.error());
 }
 
 int main(int argc, char *argv[])

@@ -220,6 +220,10 @@ public:
     using handle_t = std::shared_ptr<thread>;
 
     thread(secret, assistant &assistant) : M_assistant(assistant.get_ptr()) {}
+
+    // TODO: allow continuing previous threads
+    // thread(secret, std::string_view id);
+
     static auto make(assistant &assistant) { return parent::make(assistant); }
 
     auto &get_assistant() const { return *M_assistant; }
@@ -239,6 +243,11 @@ public:
     {
         if (M_thread.joinable())
             M_thread.join();
+    }
+
+    bool is_running() const
+    {
+        return M_thread.joinable();
     }
 
 private:
