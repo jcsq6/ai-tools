@@ -23,7 +23,7 @@ inline void use_light_style(QApplication &app)
     pal.setColor(QPalette::Text,             text);
     pal.setColor(QPalette::Button,           button);
     pal.setColor(QPalette::ButtonText,       text);
-    pal.setColor(QPalette::BrightText,       Qt::red);
+    pal.setColor(QPalette::BrightText,       Qt::white);
     pal.setColor(QPalette::Highlight,        highlight);
     pal.setColor(QPalette::HighlightedText,  text);
     pal.setColor(QPalette::PlaceholderText,  QColor(128,128,128));

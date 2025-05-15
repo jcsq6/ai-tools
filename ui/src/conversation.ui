@@ -321,7 +321,7 @@ QComboBox QAbstractItemView::item
          <number>4</number>
         </property>
         <item>
-         <widget class="QTextEdit" name="textEdit">
+         <widget class="QTextEdit" name="PromptEdit">
           <property name="styleSheet">
            <string notr="true">QTextEdit { border: none; }</string>
           </property>

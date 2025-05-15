@@ -5,7 +5,6 @@
 #include <string_view>
 
 #include "ai.h"
-#include "database.h"
 #include "tools.h"
 #include "window_handler.h"
 #include "ai_handler.h"
@@ -94,11 +93,7 @@ public:
     virtual ~ui_tool() = default;
 
 public slots:
-    void finish()
-    {
-        M_ai->database().append(*M_thread);
-        emit finished();
-    }
+    void finish();
 
 signals:
     void finished();
@@ -141,9 +136,5 @@ public:
     explicit ask_window(ai_handler &ai, window_handler &handler, context &&ctx, std::string_view prompt);
     ~ask_window();
 private:
-    conversation M_conversation;    
-
-    void on_delta(const nlohmann::json &accum);
-    void on_finish(const nlohmann::json &accum);
-    void send(std::string_view selected = {});
+    conversation M_conversation;
 };

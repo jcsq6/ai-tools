@@ -237,6 +237,14 @@ void prompt_window::resizeEvent(QResizeEvent *event)
 
 prompt_window::~prompt_window() = default;
 
+void ui_tool::finish()
+{
+    if (auto r = M_ai->database().append(*M_thread); !r)
+        std::print(std::cerr, "Failed to append to database: {}\n", r.error());
+
+    emit finished();
+}
+
 reword_window::reword_window(ai_handler &ai, window_handler &handler, context &&ctx, std::string_view prompt) :
     ui_tool(ai.reworder(), ai, handler, std::move(ctx)),
     ui(new Ui::Reword),
@@ -294,7 +302,7 @@ void reword_window::send(std::string_view selected)
     if (auto res = M_ai->reworder().send(*M_thread, {
         .selected = !selected.empty() ? std::optional(selected) : std::nullopt,
         .prompt = !ui->PromptEdit->text().isEmpty() ? std::optional(ui->PromptEdit->text().toStdString()) : std::nullopt,
-        .images = ai::input::imgs_t{M_context.window, M_context.screen}
+        .files = {{M_context.window, "window.jpg"}, {M_context.screen, "screen.jpg"}}
     }, *M_stream_handler); !res)
     {
         std::print(std::cerr, "Failed to send request: {}\n", res.error());
@@ -344,7 +352,8 @@ reword_window::~reword_window() = default;
 
 ask_window::ask_window(ai_handler &ai, window_handler &handler, context &&ctx, std::string_view prompt) :
     ui_tool(ai.ask(), ai, handler, std::move(ctx)),
-    M_conversation(ai, this)
+    M_conversation(ai, *M_thread, this)
 {
+    M_conversation.send(prompt);
 }
 ask_window::~ask_window() = default;
