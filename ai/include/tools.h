@@ -54,7 +54,7 @@ public:
     }
 
     template <typename Self>
-    std::expected<void, std::string> send(this Self &&self, thread &th, input &&in, stream_handler &res)
+    std::expected<void, std::string> send(this Self &&self, thread &th, const input &in, stream_handler &res)
     {
         if (&th.get_assistant() != self.M_assistant.get())
             return std::unexpected("Thread does not belong to this assistant.");
@@ -116,7 +116,7 @@ private:
 
     friend tool;
 
-    std::expected<void, std::string> send_impl(thread &th, input &&in, stream_handler &res);
+    std::expected<void, std::string> send_impl(thread &th, const input &in, stream_handler &res);
 };
 
 class ask : public tool
@@ -137,7 +137,7 @@ private:
 
     friend tool;
 
-    std::expected<void, std::string> send_impl(thread &th, input &&in, stream_handler &res);
+    std::expected<void, std::string> send_impl(thread &th, const input &in, stream_handler &res);
 };
 
 AI_END
