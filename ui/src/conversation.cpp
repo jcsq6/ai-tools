@@ -6,7 +6,10 @@
 #include <QTime>
 #include <QThread>
 
+#include <concepts>
+#include <functional>
 #include <iostream>
+#include <tuple>
 
 class Bubble : public QTextBrowser
 {
@@ -29,7 +32,9 @@ public:
 
     void resizeEvent(QResizeEvent *event) override
     {
-        QTextBrowser::resizeEvent(event);
+        if (event)
+            QTextBrowser::resizeEvent(event);
+
         if (user)
         {
             document()->setTextWidth(document()->idealWidth());
@@ -41,6 +46,27 @@ public:
 
 private:
     bool user;
+};
+
+auto make_callback(auto &&self, auto memfn)
+{
+    static auto maybe_to_string = [](auto arg)
+    {
+        if constexpr (std::same_as<decltype(arg), std::string_view>)
+            return std::string(arg);
+        else
+            return arg;
+    };
+
+    return [&self, memfn](auto... args) {
+        auto tuple_args = std::make_tuple(maybe_to_string(args)...);
+        auto call = [&self, tuple_args, memfn]() mutable {
+            std::apply([&self, memfn](auto&&... unpacked) {
+                memfn(self, std::forward<decltype(unpacked)>(unpacked)...);
+            }, tuple_args);
+        };
+        QMetaObject::invokeMethod(&self, call, Qt::QueuedConnection);
+    };
 };
 
 conversation::conversation(ai_handler &ai, ai::thread &thread, QWidget *parent) :
@@ -57,26 +83,15 @@ conversation::conversation(ai_handler &ai, ai::thread &thread, QWidget *parent) 
         add_bubble(QString::fromStdString(msg.response));
     }
 
-    auto make_callback = [this](auto memfn) {
-        auto fun = [this, memfn](auto &&...args)
-        {
-            if (QThread::currentThread() == qApp->thread())
-                (this->*memfn)(std::forward<decltype(args)>(args)...);
-            else
-                QMetaObject::invokeMethod(this, [&]() { (this->*memfn)(std::forward<decltype(args)>(args)...); }, Qt::QueuedConnection);
-        };
-        return fun;
-    };
-
     M_stream = ai::text_stream_handler::make(ai::text_stream_handler::constructor_arg_t{
-        .delta = make_callback(&conversation::delta),
-        .finish = make_callback(&conversation::finish),
-        .error = make_callback(&conversation::error)
+        .delta = make_callback(*this, std::mem_fn(&conversation::delta)),
+        .finish = make_callback(*this, std::mem_fn(&conversation::finish)),
+        .error = make_callback(*this, std::mem_fn(&conversation::error))
     });
 
     connect(M_ui->Send, &QToolButton::clicked, [this]() {
         auto text = M_ui->PromptEdit->toPlainText();
-        send(text.toStdString());
+        send({ .prompt = text.toStdString() });
     });
 }
 
@@ -98,8 +113,9 @@ void conversation::add_bubble(const QString &text, const QDateTime &time)
     vbox->addWidget(bubble, 0, user ? Qt::AlignRight : Qt::Alignment());
 }
 
-void conversation::send(std::string_view text)
+void conversation::send(const ai::input &input)
 {
+    auto text = input.prompt.value_or("");
     if (text.empty())
         return;
     if (M_thread->is_running())
@@ -107,7 +123,7 @@ void conversation::send(std::string_view text)
     
     M_ui->Send->setEnabled(false);
 
-    if (auto res = M_ai->ask().send(*M_thread, ai::input{ .prompt = text }, *M_stream))
+    if (auto res = M_ai->ask().send(*M_thread, std::move(input), *M_stream))
     {
         add_bubble(QString::fromStdString(std::string(text))); // user
         add_bubble(""); // response
@@ -120,22 +136,27 @@ void conversation::send(std::string_view text)
     }
 }
 
-void conversation::delta(std::string_view accum, std::string_view delta)
+void conversation::delta(std::string accum, std::string delta)
 {
     if (accum.empty())
         return;
 
     auto vbox = static_cast<QVBoxLayout*>(M_ui->MessagesContent->layout());
     auto bubble = static_cast<Bubble*>(vbox->itemAt(vbox->count() - 1)->widget());
-    bubble->append(QString::fromStdString(std::string(delta)));
+    auto cursor = bubble->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    cursor.insertText(QString::fromStdString(std::string(delta)));
+    bubble->setTextCursor(cursor);
+    bubble->ensureCursorVisible();
+    bubble->resizeEvent(nullptr);
 }
 
-void conversation::finish(std::string_view accum)
+void conversation::finish(std::string accum)
 {
     M_ui->Send->setEnabled(true);
 }
 
-void conversation::error(ai::severity_t severity, std::string_view msg)
+void conversation::error(ai::severity_t severity, std::string msg)
 {
     switch (severity)
     {

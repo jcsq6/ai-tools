@@ -4,8 +4,6 @@
 #include <QDateTime>
 
 #include <memory>
-#include <qdatetime.h>
-#include <string_view>
 
 #include "ai.h"
 #include "ai_handler.h"
@@ -26,11 +24,11 @@ public:
 
 public slots:
     void add_bubble(const QString &text, const QDateTime &time = QDateTime::currentDateTime());
-    void send(std::string_view text);
+    void send(const ai::input &input);
 private:
-    void delta(std::string_view accum, std::string_view delta);
-    void finish(std::string_view accum);
-    void error(ai::severity_t severity, std::string_view msg);
+    void delta(std::string accum, std::string delta);
+    void finish(std::string accum);
+    void error(ai::severity_t severity, std::string msg);
 
     std::unique_ptr<Ui::Conversation> M_ui;
 
