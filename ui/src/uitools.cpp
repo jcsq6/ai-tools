@@ -10,6 +10,8 @@
 
 #include <QtWidgets/qlineedit.h>
 #include <QtWidgets/qtextedit.h>
+#include <array>
+#include <expected>
 #include <optional>
 #include <qtresource.h>
 #include <string_view>
@@ -18,6 +20,7 @@
 #include <type_traits>
 
 #include <QResource>
+#include <vector>
 
 struct ToolWindow_init
 {
@@ -294,16 +297,36 @@ reword_window::reword_window(ai_handler &ai, window_handler &handler, context &&
             std::print(std::cerr, "Failed to copy text: {}\n", res.error());
     });
 
-    send(M_context.selected_text);
+    std::optional<ai::file> window = std::nullopt;
+    if (!M_context.window.empty())
+    {
+        if (auto res = ai::file::make(M_ai->client(), "window.jpg", M_context.window))
+            window = std::move(res).value();
+        else
+            std::print(std::cerr, "Failed to process window file: {}\n", res.error());
+    }
+
+    std::optional<ai::file> screen = std::nullopt;
+    if (!M_context.screen.empty())
+    {
+        if (auto res = ai::file::make(M_ai->client(), "screen.jpg", M_context.screen))
+            screen = std::move(res).value();
+        else
+            std::print(std::cerr, "Failed to process screen file: {}\n", res.error());
+    }
+
+    if (auto res = M_ai->reworder().initial_send(*M_thread, *M_stream_handler,
+        std::array{window, screen} | std::views::filter([](const auto &file) { return file.has_value(); }) | std::views::transform([](const auto &file) -> decltype(auto) { return file.value(); }),
+        prompt, M_context.selected_text); !res)
+    {
+        std::print(std::cerr, "Failed to send request: {}\n", res.error());
+        return;
+    }
 }
 
-void reword_window::send(std::string_view selected)
+void reword_window::send()
 {
-    if (auto res = M_ai->reworder().send(*M_thread, {
-        .selected = !selected.empty() ? std::optional(selected) : std::nullopt,
-        .prompt = !ui->PromptEdit->text().isEmpty() ? std::optional(ui->PromptEdit->text().toStdString()) : std::nullopt,
-        .files = {{M_context.window, "window.jpg"}, {M_context.screen, "screen.jpg"}}
-    }, *M_stream_handler); !res)
+    if (auto res = M_ai->reworder().send(*M_thread, *M_stream_handler, std::views::empty<ai::file>, ui->PromptEdit->text().toStdString()); !res)
     {
         std::print(std::cerr, "Failed to send request: {}\n", res.error());
         return;
@@ -354,6 +377,22 @@ ask_window::ask_window(ai_handler &ai, window_handler &handler, context &&ctx, s
     ui_tool(ai.ask(), ai, handler, std::move(ctx)),
     M_conversation(ai, *M_thread, this)
 {
-    M_conversation.send({.prompt = prompt, .files = {{M_context.window, "window.jpg"}, {M_context.screen, "screen.jpg"}}});
+    if (!ctx.window.empty())
+    {
+        if (auto res = ai::file::make(ai.client(), "window.jpg", ctx.window))
+            M_conversation.add_file(std::move(res).value());
+        else
+            std::print(std::cerr, "Failed to process window file: {}\n", res.error());
+    }
+
+    if (!ctx.screen.empty())
+    {
+        if (auto res = ai::file::make(ai.client(), "screen.jpg", ctx.screen))
+            M_conversation.add_file(std::move(res).value());
+        else
+            std::print(std::cerr, "Failed to process screen file: {}\n", res.error());
+    }
+
+    M_conversation.initial_send(ctx.selected_text, prompt);
 }
 ask_window::~ask_window() = default;

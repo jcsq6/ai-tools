@@ -4,8 +4,9 @@ file(GLOB HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
 add_library(ai ${SRC_FILES} ${HEADER_FILES})
 
 find_package(CURL REQUIRED)
+find_package(ICU REQUIRED COMPONENTS i18n uc data)
 
-target_link_libraries(ai PUBLIC CURL::libcurl json cppcodec)
+target_link_libraries(ai PUBLIC CURL::libcurl json cppcodec ICU::i18n ICU::uc ICU::data)
 target_include_directories(ai PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(ai_test "test.cpp")

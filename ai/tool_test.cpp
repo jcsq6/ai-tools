@@ -21,12 +21,11 @@ std::expected<ai::thread::handle_t, std::string> reword(ai::handle &client)
         }
     });
 
+    auto file = ai::file::make(client, "assets/tool_test.jpg");
+    if (!file)
+        return std::unexpected(std::format("Failed to open file: {}", file.error()));
     auto text = "This is a paragraph that is not written very well. It has a lot of issues, like grammar problems and unclear ideas, and it doesn't really make sense. I think it could be improved a lot if someone could help make it better and easier to understand.";
-    if (auto err = reworder.send(*thread, {
-        .selected = text,
-        .prompt = "Please improve the text.",
-        .files = {ai::file_view("assets/tool_test.jpg")}
-    }, *res); !err)
+    if (auto err = reworder.initial_send(*thread, *res, std::views::single(*file), {}, text); !err)
         return std::unexpected(std::format("Failed to send request: {}", err.error()));
     
     return thread;
@@ -48,10 +47,10 @@ std::expected<ai::thread::handle_t, std::string> ask(ai::handle &client)
         }
     });
     
-    if (auto err = ask.send(*thread, {
-        .prompt = "How do I change the theme? What are some good modern themes to use? Use the internet to find themes.",
-        .files = {ai::file_view("assets/tool_test.jpg")}
-    }, *res); !err)
+    auto file = ai::file::make(client, "assets/tool_test.jpg");
+    if (!file)
+        return std::unexpected(std::format("Failed to open file: {}", file.error()));
+    if (auto err = ask.initial_send(*thread, *res, std::views::single(*file), "How do I change the theme? What are some good modern themes to use? Use the internet to find themes."); !err)
         return std::unexpected(std::format("Failed to send request: {}", err.error()));
     
     return thread;

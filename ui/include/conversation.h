@@ -22,9 +22,16 @@ public:
     explicit conversation(ai_handler &ai, ai::thread &thread, QWidget *parent = nullptr);
     ~conversation();
 
+    void add_file(ai::file &&file)
+    {
+        M_files.push_back(std::move(file));
+    }
+
+    void initial_send(std::string_view selected, std::string_view prompt);
+
 public slots:
     void add_bubble(const QString &text, const QDateTime &time = QDateTime::currentDateTime());
-    void send(const ai::input &input);
+    void send();
 private:
     void delta(std::string accum, std::string delta);
     void finish(std::string accum);
@@ -35,4 +42,6 @@ private:
     ai_handler *M_ai;
     ai::thread *M_thread;
     ai::text_stream_handler::handle_t M_stream;
+
+    std::vector<ai::file> M_files;
 };

@@ -15,6 +15,11 @@ public:
     {
     }
 
+    auto &client()
+    {
+        return *M_handle;
+    }
+
     auto &reworder()
     {
         return M_reworder;

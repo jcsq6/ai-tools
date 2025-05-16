@@ -89,10 +89,7 @@ conversation::conversation(ai_handler &ai, ai::thread &thread, QWidget *parent) 
         .error = make_callback(*this, std::mem_fn(&conversation::error))
     });
 
-    connect(M_ui->Send, &QToolButton::clicked, [this]() {
-        auto text = M_ui->PromptEdit->toPlainText();
-        send({ .prompt = text.toStdString() });
-    });
+    connect(M_ui->Send, &QToolButton::clicked, this, &conversation::send);
 }
 
 conversation::~conversation() = default;
@@ -113,19 +110,36 @@ void conversation::add_bubble(const QString &text, const QDateTime &time)
     vbox->addWidget(bubble, 0, user ? Qt::AlignRight : Qt::Alignment());
 }
 
-void conversation::send(const ai::input &input)
+void conversation::initial_send(std::string_view selected, std::string_view prompt)
 {
-    auto text = input.prompt.value_or("");
-    if (text.empty())
+    M_ui->Send->setEnabled(false);
+
+    if (auto res = M_ai->ask().initial_send(*M_thread, *M_stream, M_files, prompt, selected))
+    {
+        add_bubble(QString::fromStdString(std::string(prompt)));
+        add_bubble("");
+        M_ui->PromptEdit->clear();
+    }
+    else
+    {
+        std::print(std::cerr, "Failed to send message: {}\n", res.error());
+        M_ui->Send->setEnabled(true);
+    }
+}
+
+void conversation::send()
+{
+    auto text = M_ui->PromptEdit->toPlainText();
+    if (text.isEmpty())
         return;
     if (M_thread->is_running())
         return;
     
     M_ui->Send->setEnabled(false);
 
-    if (auto res = M_ai->ask().send(*M_thread, std::move(input), *M_stream))
+    if (auto res = M_ai->ask().send(*M_thread, *M_stream, M_files, text.toStdString()))
     {
-        add_bubble(QString::fromStdString(std::string(text))); // user
+        add_bubble(text); // user
         add_bubble(""); // response
         M_ui->PromptEdit->clear();
     }
@@ -154,6 +168,7 @@ void conversation::delta(std::string accum, std::string delta)
 void conversation::finish(std::string accum)
 {
     M_ui->Send->setEnabled(true);
+    M_files.clear();
 }
 
 void conversation::error(ai::severity_t severity, std::string msg)

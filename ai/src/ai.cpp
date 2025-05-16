@@ -223,6 +223,7 @@ void thread::send(nlohmann::json input, stream_handler &output)
             curl_easy_setopt(curl, CURLOPT_URL, url.data());
             curl_easy_setopt(curl, CURLOPT_POST, 1L);
             curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.data());
+            curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
 
             curl_slist *headers = nullptr;
             auto header = std::format("Authorization: Bearer {}", key);

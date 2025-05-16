@@ -126,7 +126,7 @@ private:
 
     void on_delta(const nlohmann::json &accum);
     void on_finish(const nlohmann::json &accum);
-    void send(std::string_view selected = {});
+    void send();
 };
 
 class ask_window : public ui_tool

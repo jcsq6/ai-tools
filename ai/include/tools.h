@@ -1,43 +1,12 @@
 #pragma once
 #include "ai.h"
-#include <optional>
+#include "file.h"
+#include <initializer_list>
 #include <ranges>
-#include <span>
 #include <expected>
-#include <optional>
+#include <type_traits>
 
 AI_BEG
-
-class file_view
-{
-public:
-    file_view() = default;
-    file_view(std::string_view filename);
-
-    file_view(std::span<const std::byte> bytes, std::string_view filename);
-
-    template <std::ranges::contiguous_range R>
-    file_view(R &&bytes, std::string_view filename) : file_view(std::as_bytes(std::span(bytes)), filename)
-    {
-    }
-
-    nlohmann::json to_json() const;
-    bool empty() const { return type == type_t::none || data.empty(); }
-private:
-    std::string filename;
-    std::string data;
-    enum class type_t { jpg, pdf, text, none } type;
-
-    void process_data();
-};
-
-struct input
-{
-    std::optional<std::string_view> selected = std::nullopt;
-    std::optional<std::string_view> prompt = std::nullopt;
-
-    std::vector<file_view> files = {};
-};
 
 namespace detail
 {
@@ -53,13 +22,28 @@ public:
         return thread::make(*M_assistant);
     }
 
-    template <typename Self>
-    std::expected<void, std::string> send(this Self &&self, thread &th, const input &in, stream_handler &res)
+    template <typename Self, std::ranges::range R> requires(std::same_as<std::ranges::range_value_t<std::remove_cvref_t<R>>, file>)
+    std::expected<void, std::string> initial_send(this Self &&self, thread &th, stream_handler &res, R &&files, std::string_view prompt = {}, std::string_view selected = {})
     {
         if (&th.get_assistant() != self.M_assistant.get())
             return std::unexpected("Thread does not belong to this assistant.");
 
-        return self.send_impl(th, std::move(in), res);
+        if (th.get_messages().size() > 0)
+            return std::unexpected("Thread already has messages.");
+
+        return self.send_impl(th, res, std::forward<R>(files), prompt, selected);
+    }
+
+    template <typename Self, std::ranges::range R> requires(std::same_as<std::ranges::range_value_t<std::remove_cvref_t<R>>, file>)
+    std::expected<void, std::string> send(this Self &&self, thread &th, stream_handler &res, R &&files, std::string_view prompt)
+    {
+        if (&th.get_assistant() != self.M_assistant.get())
+            return std::unexpected("Thread does not belong to this assistant.");
+
+        if (th.get_messages().size() == 0)
+            return std::unexpected("Thread has no messages.");
+
+        return self.send_impl(th, res, std::forward<R>(files), prompt, {});
     }
 
 protected:
@@ -116,7 +100,39 @@ private:
 
     friend tool;
 
-    std::expected<void, std::string> send_impl(thread &th, const input &in, stream_handler &res);
+    template <std::ranges::range R>
+    std::expected<void, std::string> send_impl(thread &th, stream_handler &res, R &&files, std::string_view prompt, std::string_view selected)
+    {
+        if (selected.empty() && prompt.empty())
+            return std::unexpected("No selected text or prompt provided.");
+
+        nlohmann::json input_text = {};
+        if (selected.empty())
+            input_text["Selected"] = selected;
+        if (prompt.empty())
+            input_text["Prompt"] = prompt;
+
+        auto content = nlohmann::json::array({
+            {
+                {"type", "input_text"},
+                {"text", input_text.dump(2)}
+            }
+        });
+
+        for (auto &file : files)
+            content.push_back(file.json());
+
+        auto input = nlohmann::json::array({
+            {
+                {"role", "user"},
+                {"content", std::move(content)}
+            }
+        });
+
+        th.send(std::move(input), res);
+
+        return {};
+    }
 };
 
 class ask : public tool
@@ -137,7 +153,37 @@ private:
 
     friend tool;
 
-    std::expected<void, std::string> send_impl(thread &th, const input &in, stream_handler &res);
+    template <std::ranges::range R>
+    std::expected<void, std::string> send_impl(thread &th, stream_handler &res, R &&files, std::string_view prompt, std::string_view selected)
+    {
+        if (prompt.empty())
+            return std::unexpected("No prompt provided.");
+
+        nlohmann::json input_text = {{"Prompt", prompt}};
+        if (!selected.empty())
+            input_text["Selected"] = selected;
+
+        auto content = nlohmann::json::array({
+            {
+                {"type", "input_text"},
+                {"text", input_text.dump(2)}
+            }
+        });
+
+        for (auto &file : files)
+            content.push_back(file.json());
+
+        auto input = nlohmann::json::array({
+            {
+                {"role", "user"},
+                {"content", std::move(content)}
+            }
+        });
+
+        th.send(std::move(input), res);
+
+        return {};
+    }
 };
 
 AI_END
