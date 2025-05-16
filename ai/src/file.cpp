@@ -60,8 +60,6 @@ std::expected<std::string, std::string> get_text(std::span<const std::byte> data
 
 std::expected<std::string, std::string> upload_file(handle &client, const std::filesystem::path &filename, std::span<const std::byte> data)
 {
-    static const auto g = []() { curl_global_init(CURL_GLOBAL_ALL); return true; }(); // TODO: make global and safe
-
     CURL *curl = curl_easy_init();
     if (!curl)
         return std::unexpected("Failed to initialize libcurl.");
@@ -84,7 +82,6 @@ std::expected<std::string, std::string> upload_file(handle &client, const std::f
     // request
     auto auth_storage = std::format("Authorization: Bearer {}", client.key());
     curl_slist *headers = curl_slist_append(nullptr, auth_storage.c_str());
-    // headers = curl_slist_append(headers, "Expect:");
 
     curl_easy_setopt(curl, CURLOPT_URL, "https://api.openai.com/v1/files");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
