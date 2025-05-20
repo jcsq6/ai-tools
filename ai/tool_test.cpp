@@ -25,7 +25,7 @@ std::expected<ai::thread::handle_t, std::string> reword(ai::handle &client)
     if (!file)
         return std::unexpected(std::format("Failed to open file: {}", file.error()));
     auto text = "This is a paragraph that is not written very well. It has a lot of issues, like grammar problems and unclear ideas, and it doesn't really make sense. I think it could be improved a lot if someone could help make it better and easier to understand.";
-    if (auto err = reworder.initial_send(*thread, *res, std::views::single(*file), {}, text); !err)
+    if (auto err = reworder.initial_send(*thread, *res, std::views::single(*std::move(file)), {}, text); !err)
         return std::unexpected(std::format("Failed to send request: {}", err.error()));
     
     return thread;

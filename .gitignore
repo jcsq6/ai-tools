@@ -1,6 +1,6 @@
 .env
 .vscode/
-.venv/
+.venv*/
 build*/
 database/
 .DS_Store

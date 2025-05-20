@@ -22,7 +22,8 @@ public:
         return thread::make(*M_assistant);
     }
 
-    template <typename Self, std::ranges::range R> requires(std::same_as<std::ranges::range_value_t<std::remove_cvref_t<R>>, file>)
+    // will check files for validity
+    template <typename Self, std::ranges::range R> requires(std::same_as<std::ranges::range_value_t<std::remove_cvref_t<R>>, file::handle_t>)
     std::expected<void, std::string> initial_send(this Self &&self, thread &th, stream_handler &res, R &&files, std::string_view prompt = {}, std::string_view selected = {})
     {
         if (&th.get_assistant() != self.M_assistant.get())
@@ -34,7 +35,8 @@ public:
         return self.send_impl(th, res, std::forward<R>(files), prompt, selected);
     }
 
-    template <typename Self, std::ranges::range R> requires(std::same_as<std::ranges::range_value_t<std::remove_cvref_t<R>>, file>)
+    // will check files for validity
+    template <typename Self, std::ranges::range R> requires(std::same_as<std::ranges::range_value_t<std::remove_cvref_t<R>>, file::handle_t>)
     std::expected<void, std::string> send(this Self &&self, thread &th, stream_handler &res, R &&files, std::string_view prompt)
     {
         if (&th.get_assistant() != self.M_assistant.get())
@@ -106,30 +108,21 @@ private:
         if (selected.empty() && prompt.empty())
             return std::unexpected("No selected text or prompt provided.");
 
+        // TODO: use XML input (https://platform.openai.com/docs/guides/text?api-mode=responses)
         nlohmann::json input_text = {};
         if (selected.empty())
             input_text["Selected"] = selected;
         if (prompt.empty())
             input_text["Prompt"] = prompt;
 
-        auto content = nlohmann::json::array({
-            {
-                {"type", "input_text"},
-                {"text", input_text.dump(2)}
-            }
-        });
+        input_content content(1 + std::ranges::size(files));
+        content.append(input_text.dump(2));
+        content.append(files | std::views::filter([](auto &&file) { return bool(file); }));
 
-        for (auto &file : files)
-            content.push_back(file.json());
+        input_t input(1);
+        input.append(input_t::role::user, std::move(content));
 
-        auto input = nlohmann::json::array({
-            {
-                {"role", "user"},
-                {"content", std::move(content)}
-            }
-        });
-
-        th.send(std::move(input), res);
+        th.send(input, res);
 
         return {};
     }
@@ -159,28 +152,19 @@ private:
         if (prompt.empty())
             return std::unexpected("No prompt provided.");
 
+        // TODO: use XML input (https://platform.openai.com/docs/guides/text?api-mode=responses)
         nlohmann::json input_text = {{"Prompt", prompt}};
         if (!selected.empty())
             input_text["Selected"] = selected;
 
-        auto content = nlohmann::json::array({
-            {
-                {"type", "input_text"},
-                {"text", input_text.dump(2)}
-            }
-        });
+        input_content content(1 + std::ranges::size(files));
+        content.append(input_text.dump(2));
+        content.append(files | std::views::filter([](auto &&file) { return bool(file); }));
 
-        for (auto &file : files)
-            content.push_back(file.json());
+        input_t input(1);
+        input.append(input_t::role::user, std::move(content));
 
-        auto input = nlohmann::json::array({
-            {
-                {"role", "user"},
-                {"content", std::move(content)}
-            }
-        });
-
-        th.send(std::move(input), res);
+        th.send(input, res);
 
         return {};
     }

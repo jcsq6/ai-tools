@@ -1,6 +1,7 @@
 #pragma once
 #include <expected>
 #include <concepts>
+#include <initializer_list>
 #include <memory>
 #include <ranges>
 #include <string_view>
@@ -13,6 +14,7 @@
 #include <vector>
 #include <thread>
 #include <functional>
+#include <variant>
 
 #include <json.hpp>
 
@@ -25,7 +27,6 @@ namespace detail
 {
     template <typename T>
     class shared : public std::enable_shared_from_this<shared<T>>
-    
     {
     public:
         using handle_t = std::shared_ptr<T>;
@@ -205,6 +206,180 @@ protected:
 };
 
 class tool;
+class file;
+
+class input_content
+{
+public:
+    using array_value_t = std::variant<std::string, std::shared_ptr<file>>;
+    using array_t = std::vector<array_value_t>;
+
+    input_content(nlohmann::json) = delete;
+    
+    input_content(std::string_view message) : value(std::string(message))
+    {
+    }
+
+    input_content(std::size_t capacity = 0) : value(array_t{})
+    {
+        std::get<array_t>(value).reserve(capacity);
+    }
+
+    input_content(std::initializer_list<array_value_t> list) : value(array_t{list})
+    {
+    }
+
+    template <std::ranges::range R> requires(std::convertible_to<std::ranges::range_value_t<R>, array_value_t>)
+    input_content(R && list) : value(list | std::ranges::to<array_t>())
+    {
+    }
+
+    input_content(const input_content &content) = default;
+    input_content(input_content &&content) = default;
+    input_content &operator=(const input_content &content) = default;
+    input_content &operator=(input_content &&content) = default;
+
+    void append(std::string_view message)
+    {
+        if (!std::holds_alternative<array_t>(value))
+            throw std::runtime_error("Input is not an array."); // use exceptions instead of std::expected for elegance here
+        
+        if (message.empty())
+            return;
+
+        auto &arr = std::get<array_t>(value);
+        arr.push_back(std::string(message));
+    }
+
+    void append(std::shared_ptr<file> file)
+    {
+        if (!std::holds_alternative<array_t>(value))
+            throw std::runtime_error("Input is not an array."); // use exceptions instead of std::expected for elegance here
+        
+        auto &arr = std::get<array_t>(value);
+        arr.push_back(std::move(file));
+    }
+
+    template <std::ranges::range R> requires(std::convertible_to<std::ranges::range_value_t<R>, array_value_t>)
+    void append(R && list)
+    {
+        if (!std::holds_alternative<array_t>(value))
+            throw std::runtime_error("Input is not an array."); // use exceptions instead of std::expected for elegance here
+
+        auto &arr = std::get<array_t>(value);
+        arr.append_range(std::forward<R>(list));
+    }
+
+    void set(std::string_view message)
+    {   
+        value = std::string(message);
+    }
+
+    void set(std::initializer_list<array_value_t> list)
+    {
+        value = array_t{list};
+    }
+
+    template <std::ranges::range R> requires(std::convertible_to<std::ranges::range_value_t<R>, array_value_t>)
+    void set(R && list)
+    {
+        value = list | std::ranges::to<array_t>();
+    }
+    
+    auto files() const
+    {
+        static const array_t empty{};
+        auto on_range = [](auto &&range) {
+            return range |
+                   std::views::filter([](const array_value_t &item) { return item.index() == 1; }) |
+                   std::views::transform([](const array_value_t &item) { return std::get<std::shared_ptr<file>>(item); });
+        };
+
+        if (std::holds_alternative<array_t>(value))
+            return on_range(std::get<array_t>(value));
+        else
+            return on_range(empty);
+    }
+
+    nlohmann::json json() const;
+
+public:
+    std::variant<std::string, array_t> value;
+};
+
+class input_t
+{
+public:
+    enum class role
+    {
+        user,
+        assistant,
+        developer,
+    };
+
+    using array_value_t = std::pair<role, input_content>;
+    using array_t = std::vector<array_value_t>;
+
+    input_t(nlohmann::json) = delete;
+    
+    input_t(const std::string &message) : value(message)
+    {
+    }
+    input_t(const char *message) : value(std::string(message))
+    {
+    }
+    input_t(std::string_view message) : value(std::string(message))
+    {
+    }
+
+    input_t(std::size_t capacity = 0) : value(array_t{})
+    {
+        std::get<array_t>(value).reserve(capacity);
+    }
+
+    input_t(std::initializer_list<array_value_t> list) : value(array_t{list})
+    {
+    }
+
+    template <std::ranges::range R> requires(std::convertible_to<std::ranges::range_value_t<R>, array_value_t>)
+    input_t(R && list) : value(list | std::ranges::to<array_t>())
+    {
+    }
+
+    input_t(const input_t &content) = default;
+    input_t(input_t &&content) = default;
+    input_t &operator=(const input_t &content) = default;
+    input_t &operator=(input_t &&content) = default;
+
+    void append(role _role, input_content message)
+    {
+        if (!std::holds_alternative<array_t>(value))
+            throw std::runtime_error("Input is not an array."); // use exceptions instead of std::expected for elegance here
+
+        auto &arr = std::get<array_t>(value);
+        arr.push_back({_role, std::move(message)});
+    }
+
+    auto files() const
+    {
+        static const array_t empty{};
+        auto on_range = [](auto &&range) {
+            return range |
+                   std::views::transform([](const array_value_t &item) { return item.second.files(); }) |
+                   std::views::join;
+        };
+
+        if (std::holds_alternative<array_t>(value))
+            return on_range(std::get<array_t>(value));
+        else
+            return on_range(empty);
+    }
+
+    nlohmann::json json() const;
+
+public:
+    std::variant<std::string, array_t> value;
+};
 
 class thread : public detail::shared<thread>
 {
@@ -229,7 +404,8 @@ public:
     auto &get_assistant() const { return *M_assistant; }
     auto &error() const { return M_err; }
 
-    void send(nlohmann::json input, stream_handler &output);
+    // takes shared ownership of attached files into the sending thread
+    void send(const input_t &input, stream_handler &output);
 
     template <std::derived_from<tool> Tool>
     void send(Tool &tool, auto &&... args)

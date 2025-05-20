@@ -1,4 +1,5 @@
 #include "ai.h"
+#include "file.h"
 
 #include <cstdlib>
 
@@ -8,6 +9,7 @@
 #include <utility>
 #include <thread>
 #include <fstream>
+#include <latch>
 
 #include <curl/curl.h>
 
@@ -183,6 +185,58 @@ void detail::raw_stream::parse(std::string_view delta_str)
     }
 }
 
+nlohmann::json input_content::json() const
+{
+    nlohmann::json j;
+    if (std::holds_alternative<std::string>(value))
+        j = std::get<std::string>(value);
+    else
+    {
+        auto &arr = std::get<array_t>(value);
+        j = nlohmann::json::array();
+        for (auto &item : arr)
+        {
+            if (std::holds_alternative<std::string>(item))
+                j.push_back({
+                    {"type", "input_text"},
+                    {"text", std::get<std::string>(item)}
+                });
+            else
+                j.push_back(std::get<std::shared_ptr<file>>(item)->json());
+        }
+    }
+    return j;
+}
+
+nlohmann::json input_t::json() const
+{
+    auto role_str = [](role r) {
+        switch (r)
+        {
+        case role::user: return "user";
+        case role::assistant: return "assistant";
+        case role::developer: return "developer";
+        default: return "";
+        }
+    };
+
+    nlohmann::json j;
+    if (std::holds_alternative<std::string>(value))
+        j = std::get<std::string>(value);
+    else
+    {
+        auto &arr = std::get<array_t>(value);
+        j = nlohmann::json::array();
+        for (auto &[role, item] : arr)
+            j.push_back({
+                {"role", role_str(role)},
+                {"content", item.json()}
+            });
+    }
+    return j;
+}
+
+
 size_t thread::sse_write(void *contents, size_t size, size_t nmemb, void *userp)
 {
     const auto total_size = size * nmemb;
@@ -190,25 +244,25 @@ size_t thread::sse_write(void *contents, size_t size, size_t nmemb, void *userp)
     return total_size;
 }
 
-void thread::send(nlohmann::json input, stream_handler &output)
+void thread::send(const input_t &input, stream_handler &output)
 {
-    if (!input.is_array() && !input.is_string())
-    {
-        std::print(std::cerr, "Input must be an array or string.\n");
-        return;
-    }
-
     join();
 
-    auto handle = get_ptr();
-    auto res = output.get_ptr();
-    auto runner = [input = std::move(input), &output, handle = std::move(handle), res = std::move(res)]()
+    std::latch started(2);
+    auto runner = [&]()
     {
+        auto handle = get_ptr();
+        auto res = output.get_ptr();
+        auto shared_files = input.files() | std::ranges::to<std::vector>();
+        auto json_input = input.json();
+
+        started.arrive_and_wait();
+        
         res->clear();
         try
         {
             auto &request = handle->M_assistant->M_request;
-            request["input"] = std::move(input);
+            request["input"] = std::move(json_input);
             if (!handle->M_messages.empty())
                 request["previous_response_id"] = handle->M_messages.back().id;
 
@@ -294,7 +348,7 @@ void thread::send(nlohmann::json input, stream_handler &output)
         catch (const std::exception &e)
         {
             if (res->M_stream.error)
-                res->M_stream.error(severity_t::error, std::format("Error sending request - {}", e.what()));
+                res->M_stream.error(severity_t::fatal, std::format("Error sending request - {}", e.what()));
             else
                 std::print(std::cerr, "Error sending request - {}\n", e.what());
             handle->M_err = std::current_exception();
@@ -302,7 +356,7 @@ void thread::send(nlohmann::json input, stream_handler &output)
         catch (...)
         {
             if (res->M_stream.error)
-                res->M_stream.error(severity_t::error, std::format("Error sending request - Unknown error occurred."));
+                res->M_stream.error(severity_t::fatal, std::format("Error sending request - Unknown error occurred."));
             else
                 std::print(std::cerr, "Error sending request - Unknown error occurred.\n");
             handle->M_err = std::current_exception();
@@ -310,6 +364,7 @@ void thread::send(nlohmann::json input, stream_handler &output)
     };
 
     M_thread = std::jthread(runner);
+    started.arrive_and_wait();
 }
 
 void json_stream_handler::parse(std::string_view accum)

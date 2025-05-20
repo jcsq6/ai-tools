@@ -10,10 +10,10 @@
 
 AI_BEG
 
-class file
+class file : public detail::shared<file>
 {
 public:
-    static std::expected<file, std::string> make(handle &client, const std::filesystem::path &filename)
+    static std::expected<handle_t, std::string> make(handle &client, const std::filesystem::path &filename)
     {
         std::ifstream file(filename, std::ios::binary);
         if (!file)
@@ -30,28 +30,31 @@ public:
     }
 
     template <std::ranges::contiguous_range R>
-    static std::expected<file, std::string> make(handle &client, const std::filesystem::path &filename, R &&bytes)
+    static std::expected<handle_t, std::string> make(handle &client, const std::filesystem::path &filename, R &&bytes)
     {
         if (std::ranges::empty(bytes))
             return std::unexpected(std::format("File {} is empty", filename.string()));
 
         if (auto res = process(client, std::as_bytes(std::span(bytes)), filename))
-            return file(std::move(res).value());
+            return detail::shared<file>::make(client, std::move(res).value());
         else
             return std::unexpected(std::format("Failed to process file {} - {}\n", filename.string(), res.error()));
     }
 
     const nlohmann::json &json() const { return request; }
     
-private:
-    static std::expected<nlohmann::json, std::string> process(handle &client, std::span<const std::byte> bytes, const std::filesystem::path &filename);
-
-    file(nlohmann::json &&json)
-        : request(std::move(json))
+    file(secret, handle &client, nlohmann::json &&json)
+        : request(std::move(json)), M_client(&client)
     {
     }
 
+    // delete file from /v1/files
+    ~file();
+private:
+    static std::expected<nlohmann::json, std::string> process(handle &client, std::span<const std::byte> bytes, const std::filesystem::path &filename);
+
     nlohmann::json request;
+    handle *M_client;
 };
 
 AI_END

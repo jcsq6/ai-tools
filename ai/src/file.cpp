@@ -3,6 +3,7 @@
 #include <expected>
 #include <print>
 #include <string>
+#include <iostream>
 
 #include <cppcodec/base64_rfc4648.hpp>
 
@@ -69,8 +70,7 @@ std::expected<std::string, std::string> upload_file(handle &client, const std::f
     // -F file=@filename
     curl_mimepart *file_part = curl_mime_addpart(mime);
     curl_mime_name(file_part, "file");
-    auto name_storage = filename.filename().string();
-    curl_mime_filename(file_part, name_storage.c_str());
+    curl_mime_filename(file_part, filename.filename().string().c_str());
     curl_mime_type(file_part, "application/octet-stream");
     curl_mime_data(file_part, reinterpret_cast<const char *>(data.data()), data.size());
 
@@ -80,8 +80,7 @@ std::expected<std::string, std::string> upload_file(handle &client, const std::f
     curl_mime_data(purpose_part, "assistants", CURL_ZERO_TERMINATED);
 
     // request
-    auto auth_storage = std::format("Authorization: Bearer {}", client.key());
-    curl_slist *headers = curl_slist_append(nullptr, auth_storage.c_str());
+    curl_slist *headers = curl_slist_append(nullptr, std::format("Authorization: Bearer {}", client.key()).c_str());
 
     curl_easy_setopt(curl, CURLOPT_URL, "https://api.openai.com/v1/files");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -158,6 +157,72 @@ std::expected<nlohmann::json, std::string> file::process(handle &client, std::sp
             };
         else
             return std::unexpected(std::format("Failed to detect text encoding for file {} - {}\n", filename.string(), text.error()));
+    }
+}
+
+std::expected<bool, std::string> delete_file(handle &client, const std::string &file_id)
+{
+    CURL *curl = curl_easy_init();
+    if (!curl)
+        return std::unexpected("Failed to initialize libcurl.");
+
+    // request
+    auto auth_storage = std::format("Authorization: Bearer {}", client.key());
+    curl_slist *headers = curl_slist_append(nullptr, auth_storage.c_str());
+
+    curl_easy_setopt(curl, CURLOPT_URL, std::format("https://api.openai.com/v1/files/{}", file_id).c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
+
+    std::string response;
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void *contents, size_t size, size_t nmemb, void *userp) -> std::size_t {
+        static_cast<std::string *>(userp)->append(static_cast<const char *>(contents), size * nmemb);
+        return size * nmemb;
+    });
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+    CURLcode res = curl_easy_perform(curl);
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK)
+        return std::unexpected(std::format("Failed to upload file: {}", curl_easy_strerror(res)));
+
+    try
+    {
+        auto json = nlohmann::json::parse(response);
+        return json["deleted"];
+    }
+    catch (const std::exception &e)
+    {
+        return std::unexpected(std::format("Failed to parse response: {}", e.what()));
+    }
+    catch (...)
+    {
+        if (response.empty())
+            return std::unexpected("Failed to parse response: no response.");
+        else
+            return std::unexpected(std::format("Failed to parse response: {}", response));
+    }
+}
+
+file::~file()
+{
+    if (request.contains("file_id"))
+    {
+        if (auto res = delete_file(*M_client, request["file_id"]))
+        {
+            if (*res)
+                std::print(std::cerr, "Deleted file {} successfully\n", request["file_id"].get<std::string>());
+            else
+                std::print(std::cerr, "Failed to delete file {}\n", request["file_id"].get<std::string>());
+        }
+        else
+            std::print(std::cerr, "Failed to delete file {} - {}\n", request["file_id"].get<std::string>(), res.error());
     }
 }
 
