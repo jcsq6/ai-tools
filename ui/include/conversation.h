@@ -22,9 +22,10 @@ public:
     explicit conversation(ai_handler &ai, ai::thread &thread, QWidget *parent = nullptr);
     ~conversation();
 
-    void add_file(ai::file &&file)
+    template <std::ranges::range R> requires(std::same_as<std::ranges::range_value_t<std::remove_cvref_t<R>>, ai::file::handle_t>)
+    void add_files(R &&files)
     {
-        M_files.push_back(std::move(file));
+        M_files.append_range(std::forward<R>(files));
     }
 
     void initial_send(std::string_view selected, std::string_view prompt);
@@ -38,10 +39,9 @@ private:
     void error(ai::severity_t severity, std::string msg);
 
     std::unique_ptr<Ui::Conversation> M_ui;
+    std::vector<ai::file::handle_t> M_files;
 
     ai_handler *M_ai;
     ai::thread *M_thread;
     ai::text_stream_handler::handle_t M_stream;
-
-    std::vector<ai::file> M_files;
 };

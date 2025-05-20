@@ -157,11 +157,7 @@ void conversation::delta(std::string accum, std::string delta)
 
     auto vbox = static_cast<QVBoxLayout*>(M_ui->MessagesContent->layout());
     auto bubble = static_cast<Bubble*>(vbox->itemAt(vbox->count() - 1)->widget());
-    auto cursor = bubble->textCursor();
-    cursor.movePosition(QTextCursor::End);
-    cursor.insertText(QString::fromStdString(std::string(delta)));
-    bubble->setTextCursor(cursor);
-    bubble->ensureCursorVisible();
+    bubble->setMarkdown(QString::fromStdString(accum));
     bubble->resizeEvent(nullptr);
 }
 
@@ -185,7 +181,12 @@ void conversation::error(ai::severity_t severity, std::string msg)
         std::print(std::cerr, "Error: {}\n", msg);
         break;
     case ai::severity_t::fatal:
+        // TODO: re-enable loaded files
         std::print(std::cerr, "Fatal: {}\n", msg);
+        {
+            auto vbox = static_cast<QVBoxLayout*>(M_ui->MessagesContent->layout());
+            vbox->removeItem(vbox->itemAt(vbox->count() - 1));
+        }
         M_ui->Send->setEnabled(true);
         break;
     }

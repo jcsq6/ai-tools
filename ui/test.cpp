@@ -3,8 +3,6 @@
 #include <initializer_list>
 #include <print>
 #include <iostream>
-#include <qpalette.h>
-#include <qtresource.h>
 #include <ranges>
 
 #include "entry.h"
