@@ -23,7 +23,7 @@ int app::run(int argc, char **argv)
     }
 
     auto args = std::ranges::subrange(argv, argv + argc) | std::views::drop(1) | std::ranges::to<std::vector<std::string_view>>();
-    if (!std::ranges::contains(std::initializer_list{"reword", "ask", "create"}, args[0]))
+    if (!std::ranges::contains(std::initializer_list{"reword", "ask", "create", "settings"}, args[0]))
     {
         std::print(std::cerr, "Invalid type: {}\n", args[0]);
         return 1;
@@ -98,6 +98,10 @@ int app::run(int argc, char **argv)
         // create_window *window = new create_window(ai, windows, get_ctx(), prompt);
         // window->show();
         return 0;
+    }
+    else if (args[0] == "settings")
+    {
+        windows.get_tray().get_window().show();
     }
 
     return app.exec();

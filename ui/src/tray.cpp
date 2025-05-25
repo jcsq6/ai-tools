@@ -16,6 +16,9 @@
 #include <QAbstractTextDocumentLayout>
 #include <QTextBrowser>
 #include <QPainter>
+#include <qnamespace.h>
+#include <qtextbrowser.h>
+#include <qtextdocument.h>
 #include <string>
 
 struct Tray_init
@@ -49,8 +52,25 @@ public:
 
     void setEditorData(QWidget *editor, const QModelIndex &idx) const override
     {
+        auto tb = static_cast<QTextBrowser *>(editor);
         QString md = idx.data(Qt::DisplayRole).toString();
-        static_cast<QTextBrowser *>(editor)->setMarkdown(md);
+        tb->setMarkdown(md);
+
+        const qreal h = tb->document()->size().height() + 2;
+        tb->setFixedHeight(static_cast<int>(qCeil(h)));
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
+    {
+        QTextDocument doc;
+        doc.setDefaultFont(opt.font);
+        doc.setMarkdown(idx.data(Qt::DisplayRole).toString());
+
+        const int available = opt.rect.width();
+        doc.setTextWidth(available);
+
+        const qreal h = doc.size().height() + 2;
+        return {static_cast<int>(available), static_cast<int>(qCeil(h))};
     }
 };
 
@@ -132,7 +152,8 @@ history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
         M_ui->Messages->openPersistentEditor(M_ui->Messages->item(M_ui->Messages->rowCount() - 1, 0));
         M_ui->Messages->openPersistentEditor(M_ui->Messages->item(M_ui->Messages->rowCount() - 1, 1));
     }
-
+    
+    M_ui->Messages->resizeRowsToContents();
     M_ui->Messages->resizeColumnsToContents();
 }
 history_item::~history_item() = default;
@@ -199,6 +220,7 @@ tray_window::tray_window(ai::database &db, QWidget *parent) :
     M_ui->Conversations->verticalHeader()->setVisible(false);
     M_ui->Conversations->setColumnWidth(0, 100);
     M_ui->Conversations->setColumnWidth(1, 180 - 2);
+    M_ui->Conversations->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     auto proxy = new filter_proxy(this);
     proxy->setSourceModel(M_model);
