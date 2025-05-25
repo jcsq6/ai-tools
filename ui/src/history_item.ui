@@ -112,6 +112,7 @@
 
 QHeaderView, 
 QHeaderView::section:horizontal {
+	height: 24px;
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
 	border: none;
@@ -120,7 +121,41 @@ QHeaderView::section:horizontal {
 
 QHeaderView {
 		border-bottom: 1px solid palette(dark);
-}</string>
+}
+
+QScrollBar:vertical {
+	background-color: palette(window);
+	width: 12px;
+	height: 12px;
+	border-top: 1px solid palette(dark);
+	margin-top: 23px;
+	border-radius: 8px;
+}
+
+QScrollBar::handle:vertical,
+QScrollBar::handle:horizontal {
+	background-color: palette(mid);
+	min-height: 24px;
+	min-width: 24px;
+	border-radius: 6px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+	width: 0px;
+	height: 0px;
+	subcontrol-origin: margin;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical,
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+	background: transparent;
+}
+</string>
      </property>
      <property name="editTriggers">
       <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
@@ -136,6 +171,9 @@ QHeaderView {
      </attribute>
      <attribute name="verticalHeaderVisible">
       <bool>false</bool>
+     </attribute>
+     <attribute name="verticalHeaderDefaultSectionSize">
+      <number>30</number>
      </attribute>
      <column>
       <property name="text">

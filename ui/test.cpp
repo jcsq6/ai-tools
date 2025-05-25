@@ -102,6 +102,8 @@ int app::run(int argc, char **argv)
     else if (args[0] == "settings")
     {
         windows.get_tray().get_window().show();
+        windows.get_tray().get_window().raise();
+        windows.get_tray().get_window().activateWindow();
     }
 
     return app.exec();

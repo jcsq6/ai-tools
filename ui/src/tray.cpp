@@ -5,21 +5,20 @@
 #include "ui_history_item.h"
 #include "ui_tray_window.h"
 
+#include <qnamespace.h>
+#include <qobject.h>
+#include <string>
+#include <print>
+
 #include <QSortFilterProxyModel>
 #include <QRegularExpression>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QtGui/qpalette.h>
-#include <print>
 
 #include <QStyledItemDelegate>
 #include <QAbstractTextDocumentLayout>
 #include <QTextBrowser>
 #include <QPainter>
-#include <qnamespace.h>
-#include <qtextbrowser.h>
-#include <qtextdocument.h>
-#include <string>
 
 struct Tray_init
 {
@@ -31,49 +30,33 @@ struct Tray_init
 
 static Tray_init tray_init;
 
-class MarkdownBrowseDelegate : public QStyledItemDelegate
+class MarkdownViewer : public QTextBrowser
 {
 public:
-    using QStyledItemDelegate::QStyledItemDelegate;
-
-    QWidget *createEditor(QWidget *parent,
-                          const QStyleOptionViewItem &,
-                          const QModelIndex &) const override
+    explicit MarkdownViewer(const QString &md, QWidget *parent = nullptr)
+        : QTextBrowser(parent)
     {
-        auto *w = new QTextBrowser(parent);
-        w->setOpenExternalLinks(true);
-        w->setFrameStyle(QFrame::NoFrame);
-        w->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        w->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        w->setReadOnly(true);
-        w->setTextInteractionFlags(Qt::TextBrowserInteraction | Qt::TextSelectableByKeyboard | Qt::TextSelectableByMouse);
-        return w;
+        setMarkdown(md);
+        setOpenExternalLinks(true);
+        setFrameShape(QFrame::NoFrame);
+        setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setReadOnly(true);
+        setTextInteractionFlags(Qt::TextBrowserInteraction | Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
+        document()->setDocumentMargin(4);
+        connect(document(), &QTextDocument::contentsChanged, this, &MarkdownViewer::updateGeometry);
     }
 
-    void setEditorData(QWidget *editor, const QModelIndex &idx) const override
+    QSize sizeHint() const override
     {
-        auto tb = static_cast<QTextBrowser *>(editor);
-        QString md = idx.data(Qt::DisplayRole).toString();
-        tb->setMarkdown(md);
-
-        const qreal h = tb->document()->size().height() + 2;
-        tb->setFixedHeight(static_cast<int>(qCeil(h)));
-    }
-
-    QSize sizeHint(const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
-    {
-        QTextDocument doc;
-        doc.setDefaultFont(opt.font);
-        doc.setMarkdown(idx.data(Qt::DisplayRole).toString());
-
-        const int available = opt.rect.width();
-        doc.setTextWidth(available);
-
-        const qreal h = doc.size().height() + 2;
-        return {static_cast<int>(available), static_cast<int>(qCeil(h))};
+        constexpr int fallbackWidth = 500;
+        const qreal w = viewport()->width() > 0 ? viewport()->width() : fallbackWidth;
+        QTextDocument *doc = document();
+        doc->setTextWidth(w);
+        const QSizeF s = doc->size();
+        return { int(std::ceil(s.width())), int(std::ceil(s.height())) };
     }
 };
-
 
 Q_DECLARE_METATYPE(const ai::database::entry*)
 
@@ -139,22 +122,29 @@ history_item::history_item(const ai::database::entry &entry, QWidget *parent) :
     M_ui(new Ui::HistoryItem)
 {
     M_ui->setupUi(this);
-    M_ui->Messages->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    M_ui->Messages->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+
     M_ui->AssistantLabel->setText(QString::fromStdString(entry.assistant));
     M_ui->DateLabel->setText(QString::fromStdString(entry.model));
-    M_ui->Messages->setItemDelegate(new MarkdownBrowseDelegate(M_ui->Messages));
+
+    auto table = M_ui->Messages;
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+
+    const auto make_item = [](const std::string &text, bool escape) {
+        auto item = new MarkdownViewer(QString::fromStdString(to_markdown(text, escape)));
+        return item;
+    };
     for (const auto &message : entry.messages)
     {
-        M_ui->Messages->insertRow(M_ui->Messages->rowCount());
-        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 0, new QTableWidgetItem(QString::fromStdString(to_markdown(message.input, true))));
-        M_ui->Messages->setItem(M_ui->Messages->rowCount() - 1, 1, new QTableWidgetItem(QString::fromStdString(to_markdown(message.response, false))));
-        M_ui->Messages->openPersistentEditor(M_ui->Messages->item(M_ui->Messages->rowCount() - 1, 0));
-        M_ui->Messages->openPersistentEditor(M_ui->Messages->item(M_ui->Messages->rowCount() - 1, 1));
+        auto row = table->rowCount();
+        table->insertRow(row);
+        table->setCellWidget(row, 0, make_item(message.input, true));
+        table->setCellWidget(row, 1, make_item(message.response, false));
     }
     
-    M_ui->Messages->resizeRowsToContents();
-    M_ui->Messages->resizeColumnsToContents();
+    table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    table->resizeRowsToContents();
+    table->resizeColumnsToContents();
 }
 history_item::~history_item() = default;
 

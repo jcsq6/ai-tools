@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <sstream>
 #include <iostream>
+#include <type_traits>
 
 AI_BEG
 
@@ -99,12 +100,25 @@ void database::load()
                     };
                     e.messages.reserve(item["messages"].size());
 
+                    auto get_or = [](const nlohmann::json &j, std::string_view key, auto &&default_value)
+                    {
+                        using default_type = std::remove_cvref_t<decltype(default_value)>;
+                        try {
+                            if (j.contains(key))
+                                return j[key].get<default_type>();
+                        }
+                        catch (const std::exception &e)
+                        {
+                        }
+                        return default_value;
+                    };
+
                     for (const auto &message : item["messages"])
                         e.messages.push_back({
-                            .id = message["id"],
-                            .input = message["input"],
-                            .response = message["response"],
-                            .created_at = message["created_at"]
+                            .id = get_or(message, "id", std::string()),
+                            .input = get_or(message, "input", std::string()),
+                            .response = get_or(message, "response", std::string()),
+                            .created_at = get_or(message, "created_at", std::time_t(0))
                         });
                     M_entries.push_back(std::move(e));
                 }
