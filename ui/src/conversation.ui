@@ -216,7 +216,41 @@ QComboBox QAbstractItemView::item
    <item>
     <widget class="QScrollArea" name="Messages">
      <property name="styleSheet">
-      <string notr="true">border: none;</string>
+      <string notr="true">QScrollArea {
+	border: none;
+}
+
+QScrollBar:vertical {
+	background-color: palette(window);
+	width: 12px;
+	height: 12px;
+	border-radius: 8px;
+}
+
+QScrollBar::handle:vertical,
+QScrollBar::handle:horizontal {
+	background-color: palette(mid);
+	min-height: 24px;
+	min-width: 24px;
+	border-radius: 6px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+	width: 0px;
+	height: 0px;
+	subcontrol-origin: margin;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical,
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+	background: transparent;
+}
+</string>
      </property>
      <property name="widgetResizable">
       <bool>true</bool>
@@ -227,7 +261,7 @@ QComboBox QAbstractItemView::item
         <x>0</x>
         <y>0</y>
         <width>473</width>
-        <height>403</height>
+        <height>394</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_3">
