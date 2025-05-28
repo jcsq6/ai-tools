@@ -256,6 +256,8 @@ void thread::send(const input_t &input, stream_handler &output)
         auto shared_files = input.files() | std::ranges::to<std::vector>();
         auto json_input = input.json();
 
+        handle->M_running = true;
+
         started.arrive_and_wait();
         
         res->clear();
@@ -361,6 +363,8 @@ void thread::send(const input_t &input, stream_handler &output)
                 std::print(std::cerr, "Error sending request - Unknown error occurred.\n");
             handle->M_err = std::current_exception();
         }
+
+        handle->M_running = false;
     };
 
     M_thread = std::jthread(runner);

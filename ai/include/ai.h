@@ -7,12 +7,11 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
-
 #include <print>
-
 #include <string>
 #include <vector>
 #include <thread>
+#include <atomic>
 #include <functional>
 #include <variant>
 
@@ -394,7 +393,7 @@ public:
 
     using handle_t = std::shared_ptr<thread>;
 
-    thread(secret, assistant &assistant) : M_assistant(assistant.get_ptr()) {}
+    thread(secret, assistant &assistant) : M_assistant(assistant.get_ptr()), M_running{false} {}
 
     // TODO: allow continuing previous threads
     // thread(secret, std::string_view id);
@@ -423,12 +422,13 @@ public:
 
     bool is_running() const
     {
-        return M_thread.joinable();
+        return M_running;
     }
 
 private:
     std::vector<message> M_messages;
     assistant::handle_t M_assistant;
+    std::atomic_bool M_running;
 
     std::jthread M_thread;
     std::exception_ptr M_err;
