@@ -45,6 +45,7 @@ public:
         setTextInteractionFlags(Qt::TextBrowserInteraction | Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
         document()->setDocumentMargin(4);
         connect(document(), &QTextDocument::contentsChanged, this, &MarkdownViewer::updateGeometry);
+        setStyleSheet("background-color: transparent;");
     }
 
     QSize sizeHint() const override
