@@ -14,7 +14,7 @@ qt_add_library(ui STATIC
     ${HEADER_FILES}
 )
 
-target_link_libraries(ui PUBLIC ai Qt6::Widgets Qt6::Core Qt6::Gui QHotkey::QHotkey json sys)
+target_link_libraries(ui PUBLIC ai Qt6::Widgets Qt6::Core Qt6::Gui QHotkey::QHotkey json sys JKQTMathText6)
 target_include_directories(ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 # set_target_properties(ai-tool PROPERTIES
 #     WIN32_EXECUTABLE TRUE

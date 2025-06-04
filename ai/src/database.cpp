@@ -129,5 +129,9 @@ void database::load()
             }
         }
     }
+
+    std::ranges::sort(M_entries, {}, [](const entry &e) {
+        return e.messages.empty() ? std::time_t(0) : e.messages.back().created_at;
+    });
 }
 AI_END

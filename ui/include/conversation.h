@@ -31,7 +31,7 @@ public:
     void initial_send(std::string_view selected, std::string_view prompt);
 
 public slots:
-    void add_bubble(const QString &text, const QDateTime &time = QDateTime::currentDateTime());
+    void add_bubble(std::string_view text, bool parse_math = false, const QDateTime &time = QDateTime::currentDateTime());
     void send();
 private:
     void delta(std::string accum, std::string delta);

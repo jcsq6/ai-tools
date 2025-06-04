@@ -5,10 +5,15 @@
 #include <QTextBrowser>
 #include <QTime>
 #include <QThread>
+#include <QRegularExpression>
+#include <QBuffer>
+
+#include <jkqtmathtext.h>
 
 #include <concepts>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <tuple>
 
 class Bubble : public QTextBrowser
@@ -30,11 +35,108 @@ public:
             setStyleSheet(std::format("QTextBrowser {{ padding: {}px; }}", padding).c_str());
     }
 
+    void setContent(std::string_view text)
+    {
+        setMarkdown(QString::fromStdString(std::string(text)));
+        adjustBubbleSize();
+    }
+
+    void setMathContent(std::string_view text)
+    {
+        char last{};
+        char first{};
+        using namespace std::literals;
+        constexpr std::array<std::tuple<std::string_view, std::string_view, bool>, 6> inline_delims = {{
+            {"\\(", "\\)", false}, // inline
+            {"$", "$", false},
+            {"\\begin{math}", "\\end{math}", false},
+            {"\\[", "\\]", true}, // display
+            {"\\begin{displaymath}", "\\end{displaymath}", true},
+            {"\\begin{equation}", "\\end{equation}", true},
+        }};
+
+        std::string markdown;
+        markdown.reserve(text.size());
+
+        std::vector<std::pair<QString, QString>> places;
+
+        auto get_replacement = [this](std::string_view math_text, bool display) -> std::optional<QString>
+        {
+            JKQTMathText math;
+            math.useXITS();
+            if (!math.parse(QString::fromStdString(std::string(math_text))))
+                return std::nullopt;
+
+            double base_point = QFontInfo(font()).pointSizeF();
+            math.setFontSize(base_point * 1.2);
+            auto image = math.drawIntoImage(false, Qt::transparent);
+
+            QByteArray png;
+            QBuffer buffer(&png);
+            buffer.open(QIODevice::WriteOnly);
+            image.save(&buffer, "PNG");
+
+            QString img_tag = QString("<img src=\"data:image/png;base64,%1\">").arg(QString::fromLatin1(png.toBase64()));
+
+            if (display)
+                return QString("<div style='text-align:center;'>%1</div>").arg(img_tag);
+            else
+                return img_tag;
+        };
+        
+        char prev{};
+        // assume there are no unescaped unclosed delimiters
+        for (auto it = text.begin(); it != text.end();)
+        {
+            if (prev != '\\')
+                if (auto delim = std::ranges::find_if(inline_delims, [it](const auto &pair) { return std::get<0>(pair) == std::string_view(it, std::get<0>(pair).size()); }); delim != inline_delims.end())
+                {
+                    auto [open, close, display] = *delim;
+                    std::string_view after = it + open.size();
+                    if (auto end = after.find(close); end != std::string_view::npos && after[end - 1] != '\\')
+                    {
+                        auto math = std::string_view(after.begin(), after.begin() + end);
+
+                        auto inln = QString("MATH{%1}").arg(std::hash<std::string_view>{}(math));
+                        auto repl = get_replacement(math, display);
+                        if (repl)
+                        {
+                            places.emplace_back(inln, *std::move(repl));
+                            it = after.begin() + end + close.size();
+        
+                            markdown.append(inln.toStdString());
+                            prev = {};
+                            continue;
+                        }
+                    }
+                }
+            
+            prev = *(it++);
+            markdown.push_back(prev);
+        }
+
+        QTextDocument doc;
+        doc.setMarkdown(QString::fromUtf8(markdown.c_str()));
+
+        auto html = doc.toHtml();
+        for (auto [inln, repl] : places)
+            html.replace(inln, repl);
+
+        setHtml(html);
+        adjustBubbleSize();
+    }
+
     void resizeEvent(QResizeEvent *event) override
     {
-        if (event)
-            QTextBrowser::resizeEvent(event);
+        QTextBrowser::resizeEvent(event);
+        adjustBubbleSize();
+    }
 
+private:
+    bool user;
+
+    void adjustBubbleSize()
+    {
         if (user)
         {
             document()->setTextWidth(document()->idealWidth());
@@ -43,9 +145,6 @@ public:
 
         setFixedHeight(document()->size().height() + padding * 2);
     }
-
-private:
-    bool user;
 };
 
 auto make_callback(auto &&self, auto memfn)
@@ -79,8 +178,8 @@ conversation::conversation(ai_handler &ai, ai::thread &thread, QWidget *parent) 
 
     for (auto &msg : thread.get_messages())
     {
-        add_bubble(QString::fromStdString(msg.input));
-        add_bubble(QString::fromStdString(msg.response));
+        add_bubble(msg.input); // TODO: parse json input
+        add_bubble(msg.response);
     }
 
     M_stream = ai::text_stream_handler::make(ai::text_stream_handler::constructor_arg_t{
@@ -94,18 +193,16 @@ conversation::conversation(ai_handler &ai, ai::thread &thread, QWidget *parent) 
 
 conversation::~conversation() = default;
 
-void conversation::add_bubble(const QString &text, const QDateTime &time)
+void conversation::add_bubble(std::string_view text, bool parse_math, const QDateTime &time)
 {
     auto vbox   = static_cast<QVBoxLayout*>(M_ui->MessagesContent->layout());
     const bool user = vbox->count() % 2 == 0;
 
-    // auto time_label = new QLabel(time.toString("hh:mm"));
-    // time_label->setAlignment(Qt::AlignRight);
-    // time_label->setStyleSheet("font-size: 10px; color: #A0A0A0;");
-    // time_label->setContentsMargins(0, 0, 0, 0);
-
     auto bubble = new Bubble(user, M_ui->MessagesContent);
-    bubble->setMarkdown(text);
+    if (parse_math)
+        bubble->setMathContent(text);
+    else
+        bubble->setContent(text);
 
     vbox->addWidget(bubble, 0, user ? Qt::AlignRight : Qt::Alignment());
 }
@@ -116,7 +213,7 @@ void conversation::initial_send(std::string_view selected, std::string_view prom
 
     if (auto res = M_ai->ask().initial_send(*M_thread, *M_stream, M_files, prompt, selected))
     {
-        add_bubble(QString::fromStdString(std::string(prompt)));
+        add_bubble(prompt);
         add_bubble("");
         M_ui->PromptEdit->clear();
     }
@@ -137,9 +234,11 @@ void conversation::send()
     
     M_ui->Send->setEnabled(false);
 
-    if (auto res = M_ai->ask().send(*M_thread, *M_stream, M_files, text.toStdString()))
+    auto text_str = text.toStdString();
+
+    if (auto res = M_ai->ask().send(*M_thread, *M_stream, M_files, text_str))
     {
-        add_bubble(text); // user
+        add_bubble(text_str); // user
         add_bubble(""); // response
         M_ui->PromptEdit->clear();
     }
@@ -157,14 +256,17 @@ void conversation::delta(std::string accum, std::string delta)
 
     auto vbox = static_cast<QVBoxLayout*>(M_ui->MessagesContent->layout());
     auto bubble = static_cast<Bubble*>(vbox->itemAt(vbox->count() - 1)->widget());
-    bubble->setMarkdown(QString::fromStdString(accum));
-    bubble->resizeEvent(nullptr);
+    bubble->setContent(accum);
 }
 
 void conversation::finish(std::string accum)
 {
     M_ui->Send->setEnabled(true);
     M_files.clear();
+
+    auto vbox = static_cast<QVBoxLayout*>(M_ui->MessagesContent->layout());
+    auto bubble = static_cast<Bubble*>(vbox->itemAt(vbox->count() - 1)->widget());
+    bubble->setMathContent(accum); // TODO: parse math realtime
 }
 
 void conversation::error(ai::severity_t severity, std::string msg)
