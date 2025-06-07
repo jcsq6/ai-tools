@@ -29,16 +29,26 @@ public:
         setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        // setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
         if (user)
-            setStyleSheet(std::format("QTextBrowser {{ background:#E2E0E0; border-radius:10px; padding: {}px; }}", padding).c_str());
+            setStyleSheet(QString::fromStdString(std::format("QTextBrowser {{ background:#E2E0E0; border-radius:10px; padding: {}px; }}", padding)));
         else
-            setStyleSheet(std::format("QTextBrowser {{ padding: {}px; }}", padding).c_str());
+            setStyleSheet(QString::fromStdString(std::format("QTextBrowser {{ padding: {}px; }}", padding)));
+
+        if (auto p = parentWidget())
+            p->installEventFilter(this);
+    }
+
+    bool isUser() const
+    {
+        return user;
     }
 
     void setContent(std::string_view text)
     {
         setMarkdown(QString::fromStdString(std::string(text)));
-        adjustBubbleSize();
+        updateGeometry();
+        setFixedHeight(document()->size().height() + padding * 2);
     }
 
     void setMathContent(std::string_view text)
@@ -123,28 +133,42 @@ public:
             html.replace(inln, repl);
 
         setHtml(html);
-        adjustBubbleSize();
+        updateGeometry();
+        setFixedHeight(document()->size().height() + padding * 2);
+    }
+
+    QSize sizeHint() const override
+    {
+        if (!user)
+            return QTextBrowser::sizeHint();
+
+        const int parent_width = parentWidget() ? parentWidget()->width() : 400; // Default width if no parent
+        const float min_width = int(.4 * parent_width);
+
+        QTextDocument *doc = document();
+        const int desired = qMax(min_width - padding * 2, doc->idealWidth());
+        doc->setTextWidth(desired);
+
+        QSize size(doc->size().toSize().width() + padding * 2, -1);
+        return size;
     }
 
     void resizeEvent(QResizeEvent *event) override
     {
         QTextBrowser::resizeEvent(event);
-        adjustBubbleSize();
+        setFixedHeight(document()->size().height() + padding * 2);
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (watched == parentWidget() && event->type() == QEvent::Resize)
+            updateGeometry();
+        return QTextBrowser::eventFilter(watched, event);
     }
 
 private:
     bool user;
-
-    void adjustBubbleSize()
-    {
-        if (user)
-        {
-            document()->setTextWidth(document()->idealWidth());
-            setFixedWidth(document()->size().width() + padding * 2);
-        }
-
-        setFixedHeight(document()->size().height() + padding * 2);
-    }
 };
 
 auto make_callback(auto &&self, auto memfn)
@@ -175,6 +199,8 @@ conversation::conversation(ai_handler &ai, ai::thread &thread, QWidget *parent) 
     M_thread(&thread)
 {
     M_ui->setupUi(this);
+
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     for (auto &msg : thread.get_messages())
     {

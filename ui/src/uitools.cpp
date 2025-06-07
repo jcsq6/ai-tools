@@ -8,8 +8,8 @@
 #include <QRadioButton>
 #include <QMessageBox>
 
-#include <QtWidgets/qlineedit.h>
-#include <QtWidgets/qtextedit.h>
+#include <QLineEdit>
+#include <QTextEdit>
 #include <array>
 #include <expected>
 #include <string_view>
@@ -373,6 +373,12 @@ ask_window::ask_window(ai_handler &ai, window_handler &handler, context &&ctx, s
     ui_tool(ai.ask(), ai, handler, std::move(ctx)),
     M_conversation(ai, *M_thread, this)
 {
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(&M_conversation);
+
     if (!ctx.window.empty())
     {
         if (auto res = ai::file::make(ai.client(), "window.jpg", ctx.window))
