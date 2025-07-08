@@ -18,6 +18,7 @@ add_executable(tool_test "tool_test.cpp")
 target_link_libraries(tool_test PUBLIC ai)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND WIN32)
+    target_link_libraries(ai PUBLIC stdc++exp)
     target_link_libraries(ai_test PUBLIC stdc++exp)
     target_link_libraries(tool_test PUBLIC stdc++exp)
 endif()
