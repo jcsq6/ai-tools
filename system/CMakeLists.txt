@@ -1,7 +1,7 @@
-file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.cpp")
 if(APPLE)
-    file(GLOB OBJC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.mm")
-    list(APPEND SRC_FILES ${OBJC_FILES})
+    file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.mm")
+else()
+    file(GLOB SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.cpp")
 endif()
 
 add_library(sys STATIC ${SRC_FILES})
